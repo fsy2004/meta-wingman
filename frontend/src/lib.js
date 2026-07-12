@@ -8,7 +8,15 @@ export const API = (typeof window !== 'undefined' && window.__TAURI__)
   ? 'http://127.0.0.1:8000'
   : (import.meta.env.VITE_API_BASE || '')
 
-export async function j(url, opts) { const r = await fetch(url, opts); return r.json() }
+export async function j(url, opts) {
+  const r = await fetch(url, opts)
+  if (!r.ok) {                            // ★查状态:否则 404/500 的错误体会被当成正常数据用
+    let detail = `HTTP ${r.status}`
+    try { const b = await r.json(); if (b && b.detail) detail = b.detail } catch {}
+    throw new Error(detail)
+  }
+  return r.json()
+}
 
 // 稳健 CSV 解析(处理引号内逗号)
 export function parseCsv(text) {
@@ -29,15 +37,25 @@ export function parseCsv(text) {
 // 后端 /api/run 与 /api/envinstall 走同一行分隔 JSON 协议。
 export async function streamNdjson(url, opts, onEvent) {
   const resp = await fetch(url, opts)
+  if (!resp.ok) {                         // ★4xx/5xx 也要抛出,否则前端静默失败(转圈停了却无日志无结果)
+    let msg = `HTTP ${resp.status}`
+    try { const t = await resp.text(); if (t) { try { msg = JSON.parse(t).detail || t } catch { msg = t } } } catch {}
+    throw new Error(msg)
+  }
   if (!resp.body) throw new Error('服务器无响应体(后端是否在运行?)')
   const reader = resp.body.getReader(); const dec = new TextDecoder(); let buf = ''
+  const emit = (line) => {                // 返回 false = 需取消流(令牌失效)
+    const s = line.trim(); if (!s) return true
+    let ev; try { ev = JSON.parse(s) } catch { return true }
+    return onEvent(ev) !== false
+  }
   while (true) {
     const { done, value } = await reader.read(); if (done) break
     buf += dec.decode(value, { stream: true }); let i
     while ((i = buf.indexOf('\n')) >= 0) {
-      const line = buf.slice(0, i); buf = buf.slice(i + 1); if (!line.trim()) continue
-      let ev; try { ev = JSON.parse(line) } catch { continue }
-      if (onEvent(ev) === false) { try { await reader.cancel() } catch {} return }
+      const line = buf.slice(0, i); buf = buf.slice(i + 1)
+      if (!emit(line)) { try { await reader.cancel() } catch {} return }
     }
   }
+  if (buf.trim()) emit(buf)               // flush 末尾无换行的残留(如错误响应体)
 }

@@ -33,16 +33,14 @@ col_of <- function(df, k, d) { v <- getarg(k, d); if (v %in% names(df)) df[[v]] 
 slab_of <- function(df, slabcol) if (slabcol %in% names(df)) as.character(df[[slabcol]]) else paste("Study", seq_len(nrow(df)))
 
 ## 统一算效应量(二分类 / 连续 / 相关型);pairwise 与 influence 共用。
+## ★先在 escalc 之外解析列:缺列时给清晰报错("CSV 缺列 'm1i'"),
+##   不会被 metafor::escalc 的非标准求值(NSE)吞成晦涩的 "Cannot find the object/variable"。
 mw_escalc <- function(df, measure) {
-  if (measure %in% c("OR", "RR", "RD", "PETO"))
-    es <- metafor::escalc(measure = measure, ai = col_of(df, "ai", "ai"), bi = col_of(df, "bi", "bi"),
-                          ci = col_of(df, "ci", "ci"), di = col_of(df, "di", "di"))
-  else if (measure %in% c("SMD", "MD", "SMDH", "ROM"))
-    es <- metafor::escalc(measure = measure, m1i = col_of(df, "m1i", "m1i"), sd1i = col_of(df, "sd1i", "sd1i"),
-                          n1i = col_of(df, "n1i", "n1i"), m2i = col_of(df, "m2i", "m2i"),
-                          sd2i = col_of(df, "sd2i", "sd2i"), n2i = col_of(df, "n2i", "n2i"))
-  else if (measure %in% c("ZCOR", "COR"))
-    es <- metafor::escalc(measure = measure, ri = col_of(df, "ri", "ri"), ni = col_of(df, "ni", "ni"))
-  else stop(sprintf("本适配暂不支持 measure=%s(见 es_guide())", measure))
-  as.data.frame(es)
+  need <- if (measure %in% c("OR", "RR", "RD", "PETO")) c("ai", "bi", "ci", "di")
+          else if (measure %in% c("SMD", "MD", "SMDH", "ROM")) c("m1i", "sd1i", "n1i", "m2i", "sd2i", "n2i")
+          else if (measure %in% c("ZCOR", "COR")) c("ri", "ni")
+          else stop(sprintf("本适配暂不支持 measure=%s(见 es_guide())", measure))
+  vals <- lapply(need, function(k) col_of(df, k, k))   # 逐列解析,缺列即在此清晰报错
+  names(vals) <- need
+  as.data.frame(do.call(metafor::escalc, c(list(measure = measure), vals)))
 }

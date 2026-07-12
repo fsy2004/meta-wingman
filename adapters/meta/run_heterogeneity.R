@@ -31,8 +31,9 @@ cat(sprintf("Step 1/5: 读入 %d 个研究,measure = %s;亚组 = %s,调节变量
             nrow(df), measure, subgroup, moderator))
 
 if (measure %in% c("OR", "RR", "RD", "PETO")) {
-  es <- metafor::escalc(measure = measure, ai = col_of(df, "ai", "ai"), bi = col_of(df, "bi", "bi"),
-                        ci = col_of(df, "ci", "ci"), di = col_of(df, "di", "di"))
+  ai <- col_of(df, "ai", "ai"); bi <- col_of(df, "bi", "bi")   # escalc 外先解析,缺列清晰报错
+  ci <- col_of(df, "ci", "ci"); di <- col_of(df, "di", "di")
+  es <- metafor::escalc(measure = measure, ai = ai, bi = bi, ci = ci, di = di)
 } else stop(sprintf("本适配的异质性分析针对二分类 2x2(measure=OR/RR/RD/PETO),收到 measure=%s", measure))
 
 es <- as.data.frame(es)

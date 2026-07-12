@@ -34,14 +34,28 @@ if (-not $py) {
 Write-Host ""
 
 # ---- R(10+1 方法)----
-$r = Get-Command Rscript -ErrorAction SilentlyContinue
-if (-not $r) {
+# ★与 env_check 一致的离线发现:R 默认安装不加 PATH,若只按 PATH 找会漏装所有 R 包(与面板矛盾)。
+function Find-Rscript {
+  $c = Get-Command Rscript -ErrorAction SilentlyContinue
+  if ($c) { return $c.Source }
+  $bases = @("$env:ProgramFiles\R", "${env:ProgramFiles(x86)}\R", "$env:LOCALAPPDATA\Programs\R", "D:\R")
+  foreach ($b in $bases) {
+    if (Test-Path $b) {
+      $hit = Get-ChildItem -Path $b -Recurse -Filter Rscript.exe -ErrorAction SilentlyContinue |
+             Sort-Object FullName -Descending | Select-Object -First 1
+      if ($hit) { return $hit.FullName }
+    }
+  }
+  return $null
+}
+$rscript = Find-Rscript
+if (-not $rscript) {
   Write-Host ("[MISSING] R not found. Install R {0}+ first:" -f $req.r_min) -ForegroundColor Yellow
   Write-Host "    winget install RProject.R    or    https://mirrors.tuna.tsinghua.edu.cn/CRAN/"
 } else {
-  Write-Host ("[OK] R: {0}" -f ((Rscript --version 2>&1 | Select-Object -First 1))) -ForegroundColor Green
+  Write-Host ("[OK] R: {0}  ({1})" -f ((& $rscript --version 2>&1 | Select-Object -First 1), $rscript)) -ForegroundColor Green
   Write-Host ("  Plan: install missing of {0} pkgs   (source: {1})" -f $req.r_packages.Count, $CranRepo)
-  & Rscript (Join-Path $PSScriptRoot "install_r_packages.R") $CranRepo @($req.r_packages)
+  & $rscript (Join-Path $PSScriptRoot "install_r_packages.R") $CranRepo @($req.r_packages)
 }
 Write-Host "================ done ================" -ForegroundColor Cyan
 Write-Host "Re-check anytime:  python setup\env_check.py"
