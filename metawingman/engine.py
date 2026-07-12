@@ -21,6 +21,33 @@ def list_methods() -> list[dict]:
     return [json.loads(f.read_text(encoding="utf-8")) for f in sorted(MANIFESTS.glob("*.json"))]
 
 
+# 方法分类(有序,驱动左侧树)。(key, 中文, English)
+GROUPS = [
+    ("data",        "数据与效应量",   "Data & Effect Sizes"),
+    ("synthesis",   "合成",           "Synthesis"),
+    ("exploration", "探索",           "Exploration"),
+    ("diagnostics", "诊断",           "Diagnostics"),
+    ("reporting",   "报告与证据质量", "Reporting & Certainty"),
+]
+_GROUP_KEYS = {k for k, _, _ in GROUPS}
+
+
+def grouped_methods():
+    """返回 [(group_key, 中文, English, [methods 按 item_order]) ...],按 GROUPS 顺序。"""
+    buckets = {}
+    for m in list_methods():
+        buckets.setdefault(m.get("group", "synthesis"), []).append(m)
+    out = []
+    for k, zh, en in GROUPS:
+        items = sorted(buckets.get(k, []), key=lambda m: m.get("item_order", 999))
+        if items:
+            out.append((k, zh, en, items))
+    for g, items in buckets.items():   # 兜底:不在 GROUPS 里的分组
+        if g not in _GROUP_KEYS:
+            out.append((g, g, g, sorted(items, key=lambda m: m.get("item_order", 999))))
+    return out
+
+
 def load_manifest(mid: str) -> dict:
     return json.loads((MANIFESTS / f"{mid}.json").read_text(encoding="utf-8"))
 

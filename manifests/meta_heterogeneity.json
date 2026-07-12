@@ -99,5 +99,7 @@
     "matrix_copies": 3,
     "calibrated": true,
     "note": "meta 汇总数据内存极小, 恒绿"
-  }
+  },
+  "group": "exploration",
+  "item_order": 10
 }

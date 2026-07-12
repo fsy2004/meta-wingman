@@ -91,5 +91,7 @@
     "matrix_copies": 3,
     "calibrated": true,
     "note": "Meta 分析为研究级汇总数据(通常几十行),内存开销极小,基本恒为绿灯。"
-  }
+  },
+  "group": "synthesis",
+  "item_order": 10
 }

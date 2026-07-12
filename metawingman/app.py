@@ -42,6 +42,12 @@ def main():
         sv_ttk.set_theme("light")
     except Exception:
         pass
+    try:
+        from tkinter import ttk
+        from . import theme
+        theme.apply(ttk.Style(root))     # 紧凑行高/字号/配色(在 sv-ttk 之后覆盖)
+    except Exception:
+        pass
 
     # 全局字体:微软雅黑(Win8+ 自带,中英同族清晰)
     try:
