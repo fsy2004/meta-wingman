@@ -1,5 +1,5 @@
 ﻿# =====================================================================
-# Meta Wingman - transparent, mirror-selectable environment setup.
+# Meta Wingman 环境安装(透明·可选镜像源)。
 # 源可由参数传入(前端下拉/命令行);不传则用默认清华。是"哑执行器",只按给定源装。
 # 逐段打印:装什么(包+期望)/用什么源(URL)/结果状态。
 # 用法:
@@ -16,19 +16,19 @@ $ErrorActionPreference = "Continue"
 $root = Split-Path -Parent $PSScriptRoot
 $req  = Get-Content (Join-Path $root "config\requirements.json") -Raw -Encoding UTF8 | ConvertFrom-Json
 
-Write-Host "================ Meta Wingman environment setup ================" -ForegroundColor Cyan
-Write-Host ("  install source | pip  = {0}" -f $PipIndex)  -ForegroundColor DarkGray
-Write-Host ("  install source | CRAN = {0}" -f $CranRepo)  -ForegroundColor DarkGray
+Write-Host "================ Meta Wingman 环境安装 ================" -ForegroundColor Cyan
+Write-Host ("  安装源 · pip  = {0}" -f $PipIndex)  -ForegroundColor DarkGray
+Write-Host ("  安装源 · CRAN = {0}" -f $CranRepo)  -ForegroundColor DarkGray
 Write-Host ""
 
 # ---- Python(后端,轻)----
 $py = Get-Command python -ErrorAction SilentlyContinue
 if (-not $py) {
-  Write-Host ("[MISSING] Python not found. Install Python {0}+ first:" -f $req.python_min) -ForegroundColor Yellow
-  Write-Host "    winget install Python.Python.3.12    or    https://www.python.org/downloads/"
+  Write-Host ("[缺失] 未找到 Python,请先安装 Python {0} 及以上:" -f $req.python_min) -ForegroundColor Yellow
+  Write-Host "    winget install Python.Python.3.12    或    https://www.python.org/downloads/"
 } else {
-  Write-Host ("[OK] Python: {0}" -f (python --version)) -ForegroundColor Green
-  Write-Host ("  Plan: pip install  {0}   (source: {1})" -f ($req.python_packages -join ", "), $PipIndex)
+  Write-Host ("[就绪] Python:{0}" -f (python --version)) -ForegroundColor Green
+  Write-Host ("  计划:pip 安装 {0}(源:{1})" -f ($req.python_packages -join ", "), $PipIndex)
   python -m pip install -i $PipIndex --trusted-host $PipTrustedHost @($req.python_packages)
 }
 Write-Host ""
@@ -50,12 +50,12 @@ function Find-Rscript {
 }
 $rscript = Find-Rscript
 if (-not $rscript) {
-  Write-Host ("[MISSING] R not found. Install R {0}+ first:" -f $req.r_min) -ForegroundColor Yellow
-  Write-Host "    winget install RProject.R    or    https://mirrors.tuna.tsinghua.edu.cn/CRAN/"
+  Write-Host ("[缺失] 未找到 R,请先安装 R {0} 及以上:" -f $req.r_min) -ForegroundColor Yellow
+  Write-Host "    winget install RProject.R    或    https://mirrors.tuna.tsinghua.edu.cn/CRAN/"
 } else {
-  Write-Host ("[OK] R: {0}  ({1})" -f ((& $rscript --version 2>&1 | Select-Object -First 1), $rscript)) -ForegroundColor Green
-  Write-Host ("  Plan: install missing of {0} pkgs   (source: {1})" -f $req.r_packages.Count, $CranRepo)
+  Write-Host ("[就绪] R:{0}({1})" -f ((& $rscript --version 2>&1 | Select-Object -First 1), $rscript)) -ForegroundColor Green
+  Write-Host ("  计划:安装缺失的 R 包(共 {0} 个,源:{1})" -f $req.r_packages.Count, $CranRepo)
   & $rscript (Join-Path $PSScriptRoot "install_r_packages.R") $CranRepo @($req.r_packages)
 }
-Write-Host "================ done ================" -ForegroundColor Cyan
-Write-Host "Re-check anytime:  python setup\env_check.py"
+Write-Host "================ 完成 ================" -ForegroundColor Cyan
+Write-Host "随时可重新体检:python setup\env_check.py"
