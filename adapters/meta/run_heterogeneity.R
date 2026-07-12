@@ -14,13 +14,10 @@
 ##           + 一个类别调节列(默认 alloc) + 一个数值调节列(默认 ablat)。
 ## =====================================================================
 suppressWarnings(suppressMessages({ library(metafor); library(meta); library(pdftools) }))
+## 载入同目录公共样板(getarg / mw_init / to_png / col_of)
+source(file.path(dirname(sub("^--file=", "", commandArgs(FALSE)[grep("^--file=", commandArgs(FALSE))][1])), "_common.R"))
 
-args <- commandArgs(trailingOnly = TRUE)
-getarg <- function(k, d = NA) { i <- which(args == paste0("--", k)); if (length(i) && i[1] < length(args)) args[i[1] + 1] else d }
-
-input     <- getarg("input")
-outdir    <- getarg("outdir", "results")
-toolkit   <- getarg("toolkit", Sys.getenv("META_TOOLKIT", unset = ""))
+init <- mw_init(); input <- init$input; outdir <- init$outdir
 measure   <- toupper(getarg("measure", "OR"))
 slabcol   <- getarg("slab", "study")
 subgroup  <- getarg("subgroup", "alloc")
@@ -28,23 +25,14 @@ moderator <- getarg("moderator", "ablat")
 method    <- getarg("method", "REML")
 knha      <- tolower(getarg("knha", "true")) %in% c("true", "1", "yes", "t")
 
-if (is.na(input)) stop("需要 --input CSV")
-if (!nzchar(toolkit) || !dir.exists(file.path(toolkit, "R")))
-  stop("找不到 meta 工具包,请设 --toolkit <dir> 或环境变量 META_TOOLKIT")
-dir.create(outdir, recursive = TRUE, showWarnings = FALSE)
-
-## ---- source 工具包(00→22 顺序,依赖 %||% 等)----
-for (f in sort(list.files(file.path(toolkit, "R"), pattern = "\\.R$", full.names = TRUE))) source(f)
-
 ## ---- 读数据 + 算效应量(二分类 2x2 -> OR)----
 df <- read.csv(input, check.names = FALSE, stringsAsFactors = FALSE)
 cat(sprintf("Step 1/5: 读入 %d 个研究,measure = %s;亚组 = %s,调节变量 = %s\n",
             nrow(df), measure, subgroup, moderator))
-col <- function(k, d) { v <- getarg(k, d); if (v %in% names(df)) df[[v]] else stop(sprintf("CSV 缺列 '%s'(参数 --%s)", v, k)) }
 
 if (measure %in% c("OR", "RR", "RD", "PETO")) {
-  es <- metafor::escalc(measure = measure, ai = col("ai","ai"), bi = col("bi","bi"),
-                        ci = col("ci","ci"), di = col("di","di"))
+  es <- metafor::escalc(measure = measure, ai = col_of(df, "ai", "ai"), bi = col_of(df, "bi", "bi"),
+                        ci = col_of(df, "ci", "ci"), di = col_of(df, "di", "di"))
 } else stop(sprintf("本适配的异质性分析针对二分类 2x2(measure=OR/RR/RD/PETO),收到 measure=%s", measure))
 
 es <- as.data.frame(es)
@@ -75,8 +63,6 @@ write.csv(mr$coef, file.path(outdir, "metareg_coef.csv"), row.names = FALSE)
 
 ## ---- PDF -> PNG(供界面显示)----
 cat("Step 5/5: 气泡图 PDF -> PNG...\n")
-to_png <- function(pdf) { png <- sub("\\.pdf$", ".png", pdf)
-  suppressWarnings(pdftools::pdf_convert(pdf, format = "png", dpi = 150, pages = 1, filenames = png, verbose = FALSE)); invisible(png) }
 if (file.exists(f_reg)) to_png(f_reg) else cat("  (未生成气泡图:调节变量非单一连续型,已跳过)\n")
 
 cat(sprintf("完成。亚组表/回归系数表 + 气泡图写入 %s\n", outdir))

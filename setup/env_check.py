@@ -14,11 +14,29 @@ import subprocess
 import sys
 from pathlib import Path
 
-# 后端(轻)所需 Python 包
-PY_PKGS = ["fastapi", "uvicorn", "psutil"]
-# 10 个 meta 方法所需 R 包(工具包依赖)
-R_PKGS = ["metafor", "meta", "netmeta", "mada", "bayesmeta", "robvis",
-          "metasens", "estmeansd", "pdftools", "gridExtra", "ggplot2"]
+def _load_req() -> dict:
+    try:
+        p = Path(__file__).resolve().parent.parent / "config" / "requirements.json"
+        return json.loads(p.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def _minver(s: str, fallback: tuple) -> tuple:
+    try:
+        parts = [int(x) for x in str(s).split(".")[:2]]
+        return tuple(parts) if len(parts) == 2 else fallback
+    except Exception:
+        return fallback
+
+
+_REQ = _load_req()
+# 依赖清单与版本门槛的单一权威来源 = config/requirements.json(读不到则用兜底)
+PY_PKGS = _REQ.get("python_packages") or ["fastapi", "uvicorn", "psutil"]
+R_PKGS = _REQ.get("r_packages") or ["metafor", "meta", "netmeta", "mada", "bayesmeta", "robvis",
+                                    "metasens", "estmeansd", "pdftools", "gridExtra", "ggplot2"]
+PY_MIN = _minver(_REQ.get("python_min", "3.9"), (3, 9))
+R_MIN = _minver(_REQ.get("r_min", "4.0"), (4, 0))
 
 
 def _find_r() -> str | None:
@@ -46,7 +64,7 @@ def check_python() -> dict:
     return {
         "present": True,
         "version": f"{v.major}.{v.minor}.{v.micro}",
-        "version_ok": (v.major, v.minor) >= (3, 9),
+        "version_ok": (v.major, v.minor) >= PY_MIN,
         "packages": pkgs,
         "missing": [p for p, ok in pkgs.items() if not ok],
     }
@@ -73,7 +91,7 @@ def check_r() -> dict:
         missing = R_PKGS[:]
     m = re.search(r"(\d+)\.(\d+)(?:\.(\d+))?", vtxt or "")   # R 版本门槛:metafor 5.x/新包需 R ≥ 4.0
     vnum = "{}.{}.{}".format(m.group(1), m.group(2), m.group(3) or "0") if m else None
-    version_ok = (int(m.group(1)), int(m.group(2))) >= (4, 0) if m else True
+    version_ok = (int(m.group(1)), int(m.group(2))) >= R_MIN if m else True
     return {
         "present": True, "rscript": rscript, "version": vtxt, "version_num": vnum,
         "version_ok": version_ok,

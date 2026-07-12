@@ -1,0 +1,27 @@
+{
+  "note": "镜像源注册表:前端下拉从这里读,安装时把所选源作为参数传给 setup/install.ps1。默认清华 + Gitee。",
+  "pip_cran_default": "tsinghua",
+  "pip_cran": [
+    { "id": "tsinghua", "label": "清华 TUNA(默认·推荐)", "region": "国内",
+      "pip_index": "https://pypi.tuna.tsinghua.edu.cn/simple", "pip_trusted_host": "pypi.tuna.tsinghua.edu.cn",
+      "cran_repo": "https://mirrors.tuna.tsinghua.edu.cn/CRAN" },
+    { "id": "ustc", "label": "中科大 USTC", "region": "国内",
+      "pip_index": "https://mirrors.ustc.edu.cn/pypi/simple", "pip_trusted_host": "mirrors.ustc.edu.cn",
+      "cran_repo": "https://mirrors.ustc.edu.cn/CRAN" },
+    { "id": "aliyun", "label": "阿里云", "region": "国内",
+      "pip_index": "https://mirrors.aliyun.com/pypi/simple", "pip_trusted_host": "mirrors.aliyun.com",
+      "cran_repo": "https://mirrors.aliyun.com/CRAN" },
+    { "id": "official", "label": "官方源(国外·国内较慢)", "region": "国外",
+      "pip_index": "https://pypi.org/simple", "pip_trusted_host": "pypi.org",
+      "cran_repo": "https://cran.r-project.org" }
+  ],
+  "app_download_default": "gitee",
+  "app_download": [
+    { "id": "gitee", "label": "Gitee(默认·国内快)", "region": "国内",
+      "git": "https://gitee.com/fsy2004/meta-wingman.git",
+      "zip": "https://gitee.com/fsy2004/meta-wingman/repository/archive/master.zip" },
+    { "id": "github", "label": "GitHub(国外·需已镜像)", "region": "国外",
+      "git": "https://github.com/fsy2004/meta-wingman.git",
+      "zip": "https://github.com/fsy2004/meta-wingman/archive/refs/heads/master.zip" }
+  ]
+}

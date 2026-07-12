@@ -4,14 +4,14 @@
 ## 需要 mean ± sd。本工具用 estmeansd(Cai 2021 / McGrath 2020 等已发表方法)估算。
 ## estmeansd 自动按可得分位选场景:S1=min+median+max+n / S2=q1+median+q3+n / S3=五者全。
 ## 用法: Rscript run_dataprep_msd.R --input stats.csv --outdir out [--method qe|bc]
+## 说明:本方法不依赖 meta 工具包(仅用 estmeansd),故 mw_init(need_toolkit=FALSE)。
 ## =====================================================================
 suppressWarnings(suppressMessages(library(estmeansd)))
+## 载入同目录公共样板(getarg / mw_init)
+source(file.path(dirname(sub("^--file=", "", commandArgs(FALSE)[grep("^--file=", commandArgs(FALSE))][1])), "_common.R"))
 
-args <- commandArgs(trailingOnly = TRUE)
-getarg <- function(k, d = NA) { i <- which(args == paste0("--", k)); if (length(i) && i[1] < length(args)) args[i[1] + 1] else d }
-input <- getarg("input"); outdir <- getarg("outdir", "results"); method <- tolower(getarg("method", "qe"))
-if (is.na(input)) stop("需要 --input CSV")
-dir.create(outdir, recursive = TRUE, showWarnings = FALSE)
+init <- mw_init(need_toolkit = FALSE); input <- init$input; outdir <- init$outdir
+method <- tolower(getarg("method", "qe"))
 
 df <- read.csv(input, check.names = FALSE, stringsAsFactors = FALSE)
 if (nrow(df) == 0) stop("输入 CSV 没有数据行,请检查文件。")

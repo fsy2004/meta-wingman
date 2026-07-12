@@ -2,9 +2,11 @@
 
 > 你的 Meta 分析副驾 —— **准备数据 → 选方法 → 出图出表**,全程本地运行,数据不出本机。
 
-一个本地可交互的 Meta 分析工作台:把常用 Meta 分析方法包在一个界面后面,选方法、填参数、一键得到**发表级图表**。不是托管网页平台,是你在自己电脑上跑的软件。
+**这是什么:** 一款**本地优先的元分析 / 系统评价桌面软件**(local-first meta-analysis & systematic-review desktop app)。它把 R 的元分析生态(`metafor` / `meta` / `netmeta` / `mada` / `bayesmeta` / `robvis` …)封装成**点选式图形界面**:选方法、填参数、一键得到**发表级图表**。
 
-## 覆盖的方法(10 种)
+**定位对标:** 类似 RevMan / CMA / JASP / MetaInsight,差异化在三点 —— **① 本地**(数据不出机,不是托管网页)· **② 覆盖系统评价全流程**(不止效应量合并,含 PRISMA 流程图、RoB 偏倚风险、GRADE 证据分级)· **③ 大陆友好**(依赖走清华镜像、应用从 Gitee 一键下载)。不是「又一个统计软件」,而是把顶刊 Meta 常用方法收拢到一个界面、并跟随顶刊持续更新方法的**工作台**。
+
+## 覆盖的方法(11 种)
 
 | 方法 | 输出 |
 |------|------|
@@ -18,46 +20,60 @@
 | PRISMA 2020 | 流程图 |
 | 偏倚风险(RoB) | 交通灯图 + 汇总图 |
 | GRADE | 证据分级 SoF 表 |
+| 数据准备(中位数→均值±SD) | 从 median/四分位/极差估算 mean±sd(estmeansd) |
 
 所有图统一 **cairo + Arial** 顶刊无衬线标准,矢量出图。
 
 ## 快速开始(三步,无需装 Node)
 
-**前置**:Windows,已装 [R 4.x](https://mirrors.tuna.tsinghua.edu.cn/CRAN/) 与 [Python 3.9+](https://www.python.org/downloads/)。
+**前置**:Windows,已装 [R 4.x](https://mirrors.tuna.tsinghua.edu.cn/CRAN/) 与 [Python 3.9+](https://www.python.org/downloads/)。版本过低时界面会给出升级方式(见下),**不会自动改动你的系统 R/Python**。
 
 1. **下载** [`install.bat`](https://gitee.com/fsy2004/meta-wingman/raw/master/install.bat)(只需这一个文件)。
-2. **双击运行 `install.bat`** —— 它会自动从 Gitee 把整个应用拉下来,并装好 R / Python 依赖(清华镜像)。
-3. **双击 `start.bat`** —— 启动后自动打开浏览器 `http://localhost:8000`。
+2. **双击运行 `install.bat`** —— 自动从 Gitee 拉取整个应用,并装好 R / Python 依赖(默认**清华镜像**)。
+3. **启动**:双击 **`Meta Wingman.exe`**(桌面壳,推荐)或 **`start.bat`**;启动后打开界面 `http://localhost:8000`。
 
-> 界面顶部有**环境状态条**:缺依赖时点「一键安装缺失依赖」即可自动补齐。
+> **环境状态条**(界面顶部)是操作中心:缺依赖 → 选镜像源(默认清华,可切中科大/阿里/官方)后点「一键安装缺失依赖」;R/Python 版本过低 → 给出 `winget` 命令与镜像下载链接,由你手动升级。
 > 前端已预构建(`frontend/dist`),终端用户**无需安装 Node.js**;后端在同端口一并托管界面。
+
+### 镜像与默认设置
+
+| 项 | 默认 | 可选 |
+|----|------|------|
+| 应用下载源 | **Gitee** | GitHub(需先镜像) |
+| pip / CRAN 源 | **清华 TUNA** | 中科大 / 阿里云 / 官方源 |
+| 版本门槛 | Python ≥ 3.9,R ≥ 4.0 | 见 `config/requirements.json` |
+
+镜像源注册表在 `config/sources.json`,版本门槛与依赖清单在 `config/requirements.json`(改一处即全局生效)。
 
 <details><summary>开发者:从源码手动跑</summary>
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File setup\install.ps1   # 装依赖
+# 装依赖(默认清华;可传源:-PipIndex/-PipTrustedHost/-CranRepo)
+powershell -ExecutionPolicy Bypass -File setup\install.ps1
 python setup\env_check.py                                    # 体检(可选)
 cd backend ; python -m uvicorn app:app --app-dir . --port 8000   # 后端(同端口托管 dist)→ http://localhost:8000
 # 改前端需重建:cd frontend ; npm install ; npm run build
+# 重建桌面 exe:cd frontend ; npm run tauri build
 ```
 </details>
 
 ## 输入数据
 
-每个方法选中后,界面会说明所需的 CSV 列(例如配对二分类需 `ai,bi,ci,di` + 研究名列)。`adapters/meta/example_data/` 下每个方法都自带一份可直接跑的示例数据。
+每个方法选中后,界面会说明所需的 CSV 列(例如配对二分类需 `ai,bi,ci,di` + 研究名列)。`adapters/meta/example_data/` 下每个方法都自带一份可直接跑的示例数据(界面上可一键下载作模板)。
 
 ## 目录结构
 
 ```
 meta-wingman/
-├─ backend/       FastAPI:环境体检 + 内存红绿灯 + 子进程执行
-├─ frontend/      React + RJSF 界面(参数表单由 JSON Schema 自动生成)
-├─ adapters/meta/ 各方法的 CLI 适配脚本 + 示例数据
+├─ backend/       FastAPI:环境体检 + 内存红绿灯 + 子进程执行(app/doctor/runner)
+├─ frontend/      React + RJSF 界面(App/EnvBar/CsvTable/lib;参数表单由 JSON Schema 自动生成)
+├─ adapters/meta/ 各方法的 CLI 适配脚本(共用 _common.R)+ 示例数据
 ├─ manifests/     每个方法一份 JSON(参数 schema + I/O)
+├─ config/        sources.json(镜像源)+ requirements.json(版本门槛/依赖)
 ├─ toolkit/       内置的 Meta 分析工具包(R,MIT)
 └─ setup/         环境体检 + 一键安装脚本
 ```
 
 ## 致谢与许可
 
-内置的 `toolkit/` 为 [meta-analysis-toolkit](https://gitee.com/) 的 Meta 分析函数库(MIT),封装 `metafor` / `meta` / `netmeta` / `mada` / `bayesmeta` / `robvis` 等已发表方法。本项目 MIT 许可。
+内置的 `toolkit/` 为 [meta-analysis-toolkit](https://github.com/fsy2004/meta-analysis-toolkit) 的 Meta 分析函数库(MIT),封装 `metafor` / `meta` / `netmeta` / `mada` / `bayesmeta` / `robvis` 等已发表方法。本项目 MIT 许可。

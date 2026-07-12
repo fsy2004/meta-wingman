@@ -36,6 +36,17 @@ LIB = _resolve(CFG["module_library"])                   # 默认库
 LIBRARIES = {k: _resolve(v) for k, v in CFG.get("libraries", {}).items()}
 MANIFESTS = ROOT / CFG["manifests_dir"]
 RUNS = ROOT / CFG["runs_dir"]
+CONFIG_DIR = ROOT / "config"
+# /api/file 只回传:运行产物(runs/)+ 各适配器的示例数据目录。绝不暴露整个项目树。
+_FILE_ALLOWED = [RUNS.resolve()] + sorted({p.resolve() for p in ROOT.glob("adapters/*/example_data") if p.is_dir()})
+
+
+def _load_cfg_json(name: str, default):
+    """读 config/<name>;缺失或损坏则返回 default(不让配置问题打挂接口)。"""
+    try:
+        return json.loads((CONFIG_DIR / name).read_text(encoding="utf-8"))
+    except Exception:
+        return default
 
 
 def lib_root(manifest: dict) -> Path:
@@ -56,8 +67,14 @@ def run_env() -> dict:
         e["META_TOOLKIT"] = str(LIBRARIES["meta_toolkit"])
     return e
 
-app = FastAPI(title="Bioinfo Launcher API")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+app = FastAPI(title="Meta Wingman API")
+# ★收紧 CORS 到本机来源:避免用户开着本应用时,任意恶意网页跨域驱动 /api/run 执行 R 或 /api/file 读文件
+_ALLOWED_ORIGINS = [
+    "http://127.0.0.1:8000", "http://localhost:8000",   # 后端同端口托管前端
+    "http://127.0.0.1:5173", "http://localhost:5173",   # vite 开发态
+    "tauri://localhost", "https://tauri.localhost",      # Tauri 桌面壳
+]
+app.add_middleware(CORSMiddleware, allow_origins=_ALLOWED_ORIGINS, allow_methods=["*"], allow_headers=["*"])
 
 
 def load_manifest(mid: str) -> dict:
@@ -160,8 +177,7 @@ def api_file(path: str):
     if not p.exists():
         raise HTTPException(404, "文件不存在")
     # ★用精确目录边界判断,避免 startswith 被同级兄弟目录(如 ..-private)绕过
-    allowed = [RUNS.resolve(), LIB.resolve()] + [v.resolve() for v in LIBRARIES.values()]
-    if not any(_within(p, a) for a in allowed):
+    if not any(_within(p, a) for a in _FILE_ALLOWED):
         raise HTTPException(403, "路径不允许")
     return FileResponse(p)
 
@@ -183,20 +199,61 @@ def api_envcheck():
     return env_check.check()
 
 
+@app.get("/api/sources")
+def api_sources():
+    """镜像源注册表 + 版本门槛,供界面下拉与「版本过低」提示。默认清华 + Gitee。"""
+    src = _load_cfg_json("sources.json", {"pip_cran": [], "app_download": []})
+    req = _load_cfg_json("requirements.json", {})
+    return {
+        "pip_cran": src.get("pip_cran", []),
+        "pip_cran_default": src.get("pip_cran_default", "tsinghua"),
+        "app_download": src.get("app_download", []),
+        "app_download_default": src.get("app_download_default", "gitee"),
+        "requirements": {"python_min": req.get("python_min", "3.9"),
+                         "r_min": req.get("r_min", "4.0")},
+    }
+
+
+class EnvInstallReq(BaseModel):
+    source: Optional[str] = None            # pip_cran 注册表里的 id(如 tsinghua/ustc/aliyun/official)
+
+
+def _resolve_source(sid: Optional[str]) -> dict:
+    """把前端传来的源 id 映射成可信 URL(只认注册表内条目,绝不用前端传入的任意 URL→防命令注入)。"""
+    src = _load_cfg_json("sources.json", {})
+    entries = src.get("pip_cran", [])
+    default_id = src.get("pip_cran_default", "tsinghua")
+    chosen = next((e for e in entries if e.get("id") == sid), None) \
+        or next((e for e in entries if e.get("id") == default_id), None) \
+        or (entries[0] if entries else {})
+    return chosen
+
+
 @app.post("/api/envinstall")
-def api_envinstall():
-    """一键安装缺失依赖:后台跑 setup/install.ps1,流式回显日志到界面。"""
+def api_envinstall(req: EnvInstallReq = EnvInstallReq()):
+    """一键安装缺失依赖:后台跑 setup/install.ps1(用所选镜像源),流式回显日志到界面。"""
     script = ROOT / "setup" / "install.ps1"
+    src = _resolve_source(req.source)
     argv = ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(script)]
+    if src.get("pip_index"):
+        argv += ["-PipIndex", src["pip_index"],
+                 "-PipTrustedHost", src.get("pip_trusted_host", ""),
+                 "-CranRepo", src.get("cran_repo", "")]
 
     def stream():
         proc = subprocess.Popen(argv, cwd=str(ROOT), stdout=subprocess.PIPE,
                                 stderr=subprocess.STDOUT, text=True,
                                 encoding="utf-8", errors="replace", bufsize=1)
-        for line in proc.stdout:
-            yield json.dumps({"type": "log", "line": line.rstrip("\n")}, ensure_ascii=False) + "\n"
-        proc.wait()
-        yield json.dumps({"type": "done", "returncode": proc.returncode}, ensure_ascii=False) + "\n"
+        used = src.get("label") or src.get("id") or "默认源"
+        yield json.dumps({"type": "log", "line": f"使用镜像源:{used}"}, ensure_ascii=False) + "\n"
+        try:
+            for line in proc.stdout:
+                yield json.dumps({"type": "log", "line": line.rstrip("\n")}, ensure_ascii=False) + "\n"
+            proc.wait()
+            yield json.dumps({"type": "done", "returncode": proc.returncode}, ensure_ascii=False) + "\n"
+        finally:
+            if proc.poll() is None:                 # 前端断开→别留孤儿安装进程
+                runner._kill_tree(proc)
 
     return StreamingResponse(stream(), media_type="application/x-ndjson")
 

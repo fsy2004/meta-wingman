@@ -18,22 +18,11 @@
 ##   工具包路径: --toolkit <dir> 或环境变量 META_TOOLKIT
 ## =====================================================================
 suppressWarnings(suppressMessages({ library(pdftools) }))
+## 载入同目录公共样板(getarg / mw_init / to_png)
+source(file.path(dirname(sub("^--file=", "", commandArgs(FALSE)[grep("^--file=", commandArgs(FALSE))][1])), "_common.R"))
 
-args <- commandArgs(trailingOnly = TRUE)
-getarg <- function(k, d = NA) { i <- which(args == paste0("--", k)); if (length(i) && i[1] < length(args)) args[i[1] + 1] else d }
-
-input   <- getarg("input")
-outdir  <- getarg("outdir", "results")
-toolkit <- getarg("toolkit", Sys.getenv("META_TOOLKIT", unset = ""))
-cex     <- as.numeric(getarg("cex", "0.8"))
-
-if (is.na(input)) stop("需要 --input CSV")
-if (!nzchar(toolkit) || !dir.exists(file.path(toolkit, "R")))
-  stop("找不到 meta 工具包,请设 --toolkit <dir> 或环境变量 META_TOOLKIT")
-dir.create(outdir, recursive = TRUE, showWarnings = FALSE)
-
-## ---- source 工具包(00→22 顺序,含 %||% 等依赖)----
-for (f in sort(list.files(file.path(toolkit, "R"), pattern = "\\.R$", full.names = TRUE))) source(f)
+init <- mw_init(); input <- init$input; outdir <- init$outdir
+cex <- as.numeric(getarg("cex", "0.8"))
 
 ## ---- 读长表并解析回 counts 具名 list ----
 df <- read.csv(input, check.names = FALSE, stringsAsFactors = FALSE)
@@ -59,8 +48,6 @@ for (fld in unique(df$field)) {
 
 ## ---- 调 prisma_flow 出图(counts 算术不一致仅 message 警告,不停)----
 cat("Step 2/3: 绘制 PRISMA 2020 流程图...\n")
-to_png <- function(pdf) { png <- sub("\\.pdf$", ".png", pdf)
-  suppressWarnings(pdftools::pdf_convert(pdf, format = "png", dpi = 150, pages = 1, filenames = png, verbose = FALSE)); invisible(png) }
 f_pdf <- file.path(outdir, "prisma.pdf")
 prisma_flow(counts, f_pdf, cex = cex)
 to_png(f_pdf)

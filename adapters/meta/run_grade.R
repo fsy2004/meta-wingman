@@ -14,21 +14,10 @@
 ##   large_effect, dose_response, plausible_confounding(整数降/升级,缺省 0)。
 ## =====================================================================
 suppressWarnings(suppressMessages({ library(utils) }))
+## 载入同目录公共样板(getarg / mw_init)
+source(file.path(dirname(sub("^--file=", "", commandArgs(FALSE)[grep("^--file=", commandArgs(FALSE))][1])), "_common.R"))
 
-args <- commandArgs(trailingOnly = TRUE)
-getarg <- function(k, d = NA) { i <- which(args == paste0("--", k)); if (length(i) && i[1] < length(args)) args[i[1] + 1] else d }
-
-input   <- getarg("input")
-outdir  <- getarg("outdir", "results")
-toolkit <- getarg("toolkit", Sys.getenv("META_TOOLKIT", unset = ""))
-
-if (is.na(input)) stop("需要 --input CSV")
-if (!nzchar(toolkit) || !dir.exists(file.path(toolkit, "R")))
-  stop("找不到 meta 工具包,请设 --toolkit <dir> 或环境变量 META_TOOLKIT")
-dir.create(outdir, recursive = TRUE, showWarnings = FALSE)
-
-## ---- source 工具包(00→22 顺序,载入 ma_grade / ma_sof_table 及 %||% 等)----
-for (f in sort(list.files(file.path(toolkit, "R"), pattern = "\\.R$", full.names = TRUE))) source(f)
+init <- mw_init(); input <- init$input; outdir <- init$outdir
 
 ## ---- 读数据 ----
 df <- read.csv(input, check.names = FALSE, stringsAsFactors = FALSE)

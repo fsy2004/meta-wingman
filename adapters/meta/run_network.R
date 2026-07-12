@@ -12,25 +12,14 @@
 ##   工具包路径: --toolkit <dir> 或环境变量 META_TOOLKIT
 ## =====================================================================
 suppressWarnings(suppressMessages({ library(netmeta); library(meta); library(pdftools) }))
+## 载入同目录公共样板(getarg / mw_init / to_png)
+source(file.path(dirname(sub("^--file=", "", commandArgs(FALSE)[grep("^--file=", commandArgs(FALSE))][1])), "_common.R"))
 
-args <- commandArgs(trailingOnly = TRUE)
-getarg <- function(k, d = NA) { i <- which(args == paste0("--", k)); if (length(i) && i[1] < length(args)) args[i[1] + 1] else d }
-
-input        <- getarg("input")
-outdir       <- getarg("outdir", "results")
-toolkit      <- getarg("toolkit", Sys.getenv("META_TOOLKIT", unset = ""))
+init <- mw_init(); input <- init$input; outdir <- init$outdir
 format       <- tolower(getarg("format", "contrast"))
 sm           <- toupper(getarg("sm", "MD"))
 reference    <- getarg("reference", "plac")
 small_values <- tolower(getarg("small_values", "desirable"))
-
-if (is.na(input)) stop("需要 --input CSV")
-if (!nzchar(toolkit) || !dir.exists(file.path(toolkit, "R")))
-  stop("找不到 meta 工具包,请设 --toolkit <dir> 或环境变量 META_TOOLKIT")
-dir.create(outdir, recursive = TRUE, showWarnings = FALSE)
-
-## ---- source 工具包(00→22 顺序,载入 %||% 等依赖)----
-for (f in sort(list.files(file.path(toolkit, "R"), pattern = "\\.R$", full.names = TRUE))) source(f)
 
 ## ---- 读数据 ----
 df <- read.csv(input, check.names = FALSE, stringsAsFactors = FALSE)
@@ -64,10 +53,6 @@ if (nzchar(reference) && !(reference %in% treats))
   cat(sprintf("  (参考处理 '%s' 不在数据中,改用 netmeta 默认参考)\n", reference))
 net <- do.call(nma_run, nma_args)
 print(net)
-
-## ---- PDF -> PNG 辅助 ----
-to_png <- function(pdf) { png <- sub("\\.pdf$", ".png", pdf)
-  suppressWarnings(pdftools::pdf_convert(pdf, format = "png", dpi = 150, pages = 1, filenames = png, verbose = FALSE)); invisible(png) }
 
 ## ---- 网络图 ----
 cat("Step 3/5: 网络几何图(netgraph)...\n")

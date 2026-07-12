@@ -11,23 +11,12 @@
 ## 数据: 每行一个研究,2x2 诊断表列 TP,FN,FP,TN(+ 研究名列,默认 study)。
 ## =====================================================================
 suppressWarnings(suppressMessages({ library(mada); library(pdftools) }))
+## 载入同目录公共样板(getarg / mw_init / to_png)
+source(file.path(dirname(sub("^--file=", "", commandArgs(FALSE)[grep("^--file=", commandArgs(FALSE))][1])), "_common.R"))
 
-args <- commandArgs(trailingOnly = TRUE)
-getarg <- function(k, d = NA) { i <- which(args == paste0("--", k)); if (length(i) && i[1] < length(args)) args[i[1] + 1] else d }
-
-input    <- getarg("input")
-outdir   <- getarg("outdir", "results")
-toolkit  <- getarg("toolkit", Sys.getenv("META_TOOLKIT", unset = ""))
+init <- mw_init(); input <- init$input; outdir <- init$outdir
 studycol <- getarg("study", "study")
 add_corr <- as.numeric(getarg("add_correction", "0.5"))
-
-if (is.na(input)) stop("需要 --input CSV")
-if (!nzchar(toolkit) || !dir.exists(file.path(toolkit, "R")))
-  stop("找不到 meta 工具包,请设 --toolkit <dir> 或环境变量 META_TOOLKIT")
-dir.create(outdir, recursive = TRUE, showWarnings = FALSE)
-
-## ---- source 工具包(00→22 顺序,依赖 %||% 等)----
-for (f in sort(list.files(file.path(toolkit, "R"), pattern = "\\.R$", full.names = TRUE))) source(f)
 
 ## ---- 读数据 ----
 df <- read.csv(input, check.names = FALSE, stringsAsFactors = FALSE)
@@ -46,8 +35,6 @@ prefix <- file.path(outdir, "dta")
 res <- dta_run(dat, out_prefix = prefix, add_correction = add_corr)
 
 ## ---- PDF → PNG(SROC + 敏感度森林 + 特异度森林)----
-to_png <- function(pdf) { png <- sub("\\.pdf$", ".png", pdf)
-  suppressWarnings(pdftools::pdf_convert(pdf, format = "png", dpi = 150, pages = 1, filenames = png, verbose = FALSE)); invisible(png) }
 cat("Step 3/3: 出图(SROC + 森林)转 PNG + 汇总表...\n")
 for (pdf in sort(list.files(outdir, pattern = "\\.pdf$", full.names = TRUE))) to_png(pdf)
 

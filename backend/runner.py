@@ -20,6 +20,8 @@ import psutil
 
 def _kill_tree(ps: "psutil.Process"):
     """尽力杀掉整个子进程树:Windows 用 taskkill /T 连子孙一起杀,避免孤儿进程继续吃内存。"""
+    if ps is None:
+        return
     try:
         if platform.system() == "Windows":
             subprocess.run(["taskkill", "/F", "/T", "/PID", str(ps.pid)], capture_output=True, timeout=10)
@@ -32,10 +34,6 @@ def _kill_tree(ps: "psutil.Process"):
             ps.terminate()
     except Exception:
         pass
-
-
-def load_config(root: Path) -> dict:
-    return json.loads((root / "config.json").read_text(encoding="utf-8"))
 
 
 def build_argv(manifest: dict, lib_root: Path, inputs: dict, params: dict, outdir: Path) -> list[str]:
@@ -59,6 +57,8 @@ def build_argv(manifest: dict, lib_root: Path, inputs: dict, params: dict, outdi
 
 def _tree_rss(proc: psutil.Process) -> int:
     """进程 + 所有子进程的 RSS 之和(Rscript 可能派生 R 子进程)。"""
+    if proc is None:
+        return 0
     total = 0
     try:
         procs = [proc] + proc.children(recursive=True)
@@ -104,7 +104,10 @@ def iter_run(argv: list[str], cwd: Path, outputs_glob: list[str], outdir: Path,
         yield {"type": "done", "returncode": 127, "peak_gb": 0, "outputs": []}
         return
 
-    ps = psutil.Process(proc.pid)
+    try:
+        ps = psutil.Process(proc.pid)
+    except psutil.Error:          # 进程秒退(如参数错)→ 不让生成器崩,后面照常读剩余输出并 yield done
+        ps = None
     state = {"peak": 0, "killed": False}
 
     def watchdog():
