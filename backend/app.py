@@ -15,7 +15,7 @@ import uuid
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
@@ -38,6 +38,7 @@ LIB = _resolve(CFG["module_library"])                   # 默认库
 LIBRARIES = {k: _resolve(v) for k, v in CFG.get("libraries", {}).items()}
 MANIFESTS = ROOT / CFG["manifests_dir"]
 RUNS = ROOT / CFG["runs_dir"]
+UPLOADS = RUNS / "_uploads"          # 用户上传的 CSV 落这里(在 runs/ 内,天然属允许目录)
 CONFIG_DIR = ROOT / "config"
 # /api/file 只回传:运行产物(runs/)+ 各适配器的示例数据目录。绝不暴露整个项目树。
 _FILE_ALLOWED = [RUNS.resolve()] + sorted({p.resolve() for p in ROOT.glob("adapters/*/example_data") if p.is_dir()})
@@ -113,15 +114,30 @@ def load_manifest(mid: str) -> dict:
     return json.loads(f.read_text(encoding="utf-8"))
 
 
+def _check_input_path(path: str) -> str:
+    """校验用户提供的输入路径必须落在允许目录内(上传目录 runs/_uploads 或示例数据),
+    防止经 /api/run、/api/dataprofile 读取任意本地文件;规整用纯字符串,不做 resolve/stat。"""
+    if "\x00" in path or path.startswith("\\\\") or path.startswith("//"):
+        raise HTTPException(403, "输入路径不允许")
+    p = Path(os.path.abspath(path))
+    if str(p).startswith("\\\\") or p.drive.startswith("\\\\"):
+        raise HTTPException(403, "输入路径不允许")
+    if not any(_within(p, a) for a in _FILE_ALLOWED):
+        raise HTTPException(403, "输入路径不允许(仅限上传的数据或内置示例)")
+    return str(p)
+
+
 def resolve_inputs(manifest: dict, given: dict | None) -> dict:
-    """给定 {name: path};缺省用模块自带 example_data。"""
+    """给定 {name: path};缺省用模块自带 example_data。用户提供的路径须过白名单校验。"""
     given = given or {}
     root = lib_root(manifest)
     out = {}
     for spec in manifest.get("inputs", []):
         name = spec["name"]
         path = given.get(name)
-        if not path and spec.get("example"):
+        if path:
+            path = _check_input_path(path)                       # 用户数据:校验目录
+        elif spec.get("example"):
             path = str(root / manifest["workdir"] / spec["example"])
         if path:
             out[name] = path
@@ -160,7 +176,7 @@ def api_dataprofile(req: ProfileReq):
     inputs = m.get("inputs") or []
     primary = next((s for s in inputs if s.get("primary")), inputs[0] if inputs else None)
     if req.path:
-        path = req.path
+        path = _check_input_path(req.path)          # 用户上传数据:同样过白名单校验
     elif primary and primary.get("example"):
         path = str(lib_root(m) / m["workdir"] / primary["example"])
     else:  # 无输入/无示例的方法(纯参数型)→ 返回安全的绿灯占位,不裸索引崩 500
@@ -198,6 +214,31 @@ def api_run(req: RunReq):
             yield json.dumps(ev, ensure_ascii=False) + "\n"
 
     return StreamingResponse(stream(), media_type="application/x-ndjson")
+
+
+@app.post("/api/upload")
+async def api_upload(file: UploadFile = File(...)):
+    """接收用户上传的 CSV,存到 runs/_uploads/,返回路径供 dataprofile / run 使用。
+    分块写盘 + 100MB 上限,避免大文件撑爆内存。"""
+    UPLOADS.mkdir(parents=True, exist_ok=True)
+    raw = file.filename or "data.csv"
+    safe = "".join(c for c in Path(raw).name if c.isalnum() or c in "._- ()").strip() or "data.csv"
+    dest = UPLOADS / f"{uuid.uuid4().hex[:8]}_{safe}"
+    size = 0
+    try:
+        with open(dest, "wb") as f:
+            while True:
+                chunk = await file.read(1024 * 1024)
+                if not chunk:
+                    break
+                size += len(chunk)
+                if size > 100 * 1024 * 1024:
+                    raise HTTPException(413, "文件过大(上限 100MB)")
+                f.write(chunk)
+    except BaseException:
+        dest.unlink(missing_ok=True)
+        raise
+    return {"path": str(dest), "name": raw, "size_mb": round(size / (1024 * 1024), 3)}
 
 
 @app.get("/api/file")

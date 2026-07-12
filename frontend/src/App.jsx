@@ -15,6 +15,10 @@ export default function App() {
   const [logs, setLogs] = useState([])
   const [running, setRunning] = useState(false)
   const [result, setResult] = useState(null)    // done event
+  const [dataSource, setDataSource] = useState('example')  // 'example' | 'upload'
+  const [userInput, setUserInput] = useState(null)         // 上传后的 {path,name,size_mb}
+  const [uploading, setUploading] = useState(false)
+  const [uploadErr, setUploadErr] = useState('')
   const logRef = useRef(null)
   const selTok = useRef(0)   // 选方法请求令牌:丢弃过期的 dataprofile 返回
   const runTok = useRef(0)   // 运行请求令牌:切换方法/重跑时丢弃旧流
@@ -42,6 +46,7 @@ export default function App() {
     const tok = ++selTok.current
     runTok.current++                      // 使任何在跑的旧流失效,避免旧结果串进新方法
     setResult(null); setLogs([]); setProfile(null); setRunning(false)
+    setDataSource('example'); setUserInput(null); setUploadErr('')   // 切方法→回默认示例数据
     try {
       const m = await j(`${API}/api/methods/${id}`)
       if (tok !== selTok.current) return   // 期间已切换到别的方法 → 丢弃
@@ -58,9 +63,12 @@ export default function App() {
     if (!sel) return
     const tok = ++runTok.current
     setRunning(true); setLogs([]); setResult(null)
+    const pin = sel.inputs?.find(s => s.primary) || sel.inputs?.[0]
+    const payload = { method_id: sel.id, params: formData }
+    if (dataSource === 'upload' && userInput && pin) payload.inputs = { [pin.name]: userInput.path }
     try {
       await streamNdjson(`${API}/api/run`,
-        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ method_id: sel.id, params: formData }) },
+        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) },
         ev => {
           if (tok !== runTok.current) return false   // 已切换/重跑 → 取消旧流
           if (ev.type === 'log') setLogs(l => [...l, ev.line])
@@ -74,6 +82,45 @@ export default function App() {
       if (tok === runTok.current) setRunning(false)
     }
   }
+
+  // 用指定数据(path 为空=示例)刷新内存红绿灯;带令牌,切方法后丢弃过期返回
+  async function loadProfile(mid, path) {
+    const tok = selTok.current
+    try {
+      const body = { method_id: mid }; if (path) body.path = path
+      const p = await j(`${API}/api/dataprofile`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      if (tok === selTok.current) setProfile(p)
+    } catch { if (tok === selTok.current) setProfile(null) }
+  }
+
+  function switchSource(src) {
+    setDataSource(src); setUploadErr('')
+    if (src === 'example' && sel) loadProfile(sel.id, null)   // 切回示例→红绿灯回示例
+    if (src === 'upload' && userInput && sel) loadProfile(sel.id, userInput.path)
+  }
+
+  async function onUpload(fileList) {
+    const file = fileList && fileList[0]
+    if (!file || !sel) return
+    const mid = sel.id
+    setUploading(true); setUploadErr('')
+    try {
+      const fd = new FormData(); fd.append('file', file)
+      const up = await fetch(`${API}/api/upload`, { method: 'POST', body: fd })
+      if (!up.ok) { let d = `HTTP ${up.status}`; try { d = (await up.json()).detail || d } catch {} throw new Error(d) }
+      const info = await up.json()
+      if (sel?.id !== mid) return              // 期间切了方法
+      setUserInput(info)
+      await loadProfile(mid, info.path)        // 用上传数据刷新红绿灯
+    } catch (e) {
+      setUploadErr(e?.message || String(e))
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  const primaryInput = sel && (sel.inputs?.find(s => s.primary) || sel.inputs?.[0])
+  const canUpload = !!(primaryInput && primaryInput.example)   // 有示例=有 CSV 输入的方法才给上传
 
   const groups = methods.reduce((a, m) => { (a[m.family] ||= []).push(m); return a }, {})
 
@@ -131,11 +178,31 @@ export default function App() {
               </div>
             )}
 
+            {canUpload && (
+              <div className="datasrc">
+                <div className="ds-tabs">
+                  <button type="button" className={dataSource === 'example' ? 'on' : ''} onClick={() => switchSource('example')}>① 内置示例数据</button>
+                  <button type="button" className={dataSource === 'upload' ? 'on' : ''} onClick={() => switchSource('upload')}>② 上传我的 CSV</button>
+                </div>
+                {dataSource === 'upload' && (
+                  <div className="ds-upload">
+                    <input type="file" accept=".csv,.tsv,.txt" disabled={uploading} onChange={e => onUpload(e.target.files)} />
+                    {uploading && <span className="ds-msg">上传中…</span>}
+                    {!uploading && userInput && <span className="ds-msg ok">✓ 已载入 {userInput.name}({userInput.size_mb} MB)</span>}
+                    {uploadErr && <span className="ds-msg err">✗ {uploadErr}</span>}
+                    <div className="ds-hint">列名需与示例模板一致(上方可下载模板作参照)。</div>
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="params">
               <h3>参数(schema 自动生成 · 加方法只写一份 JSON)</h3>
               <Form schema={sel.params_schema} validator={validator} formData={formData}
                 onChange={e => setFormData(e.formData)} onSubmit={run} disabled={running}>
-                <button type="submit" className="run" disabled={running}>{running ? '运行中…' : '▶ 运行(用示例数据)'}</button>
+                <button type="submit" className="run" disabled={running || (dataSource === 'upload' && !userInput)}>
+                  {running ? '运行中…' : (dataSource === 'upload' ? (userInput ? '▶ 运行(我的数据)' : '请先上传 CSV') : '▶ 运行(示例数据)')}
+                </button>
               </Form>
             </div>
 
