@@ -7,6 +7,7 @@ Meta Wingman 环境体检 —— 检测 Python / R 及各自所需的包是否�
 from __future__ import annotations
 import importlib.util
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -24,9 +25,17 @@ def _find_r() -> str | None:
         p = shutil.which(exe)
         if p:
             return p
-    for base in (r"C:\Program Files\R", r"C:\Program Files\R\R-4.4.3\bin"):
-        for cand in Path(base).glob("**/Rscript.exe") if Path(base).exists() else []:
-            return str(cand)
+    # PATH 里没有时再扫常见安装位置(含 winget 用户级、非 C 盘)
+    bases = [r"C:\Program Files\R", r"C:\Program Files (x86)\R", r"D:\R", r"D:\Program Files\R"]
+    la = os.environ.get("LOCALAPPDATA")
+    if la:
+        bases.append(str(Path(la) / "Programs" / "R"))
+    for base in bases:
+        bp = Path(base)
+        if bp.exists():
+            cands = sorted(bp.glob("**/bin/Rscript.exe"), reverse=True)   # 多版本取最新
+            if cands:
+                return str(cands[0])
     return None
 
 

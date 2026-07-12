@@ -21,26 +21,26 @@
 
 所有图统一 **cairo + Arial** 顶刊无衬线标准,矢量出图。
 
-## 快速开始
+## 快速开始(三步,无需装 Node)
 
 **前置**:Windows,已装 [R 4.x](https://mirrors.tuna.tsinghua.edu.cn/CRAN/) 与 [Python 3.9+](https://www.python.org/downloads/)。
 
+1. **下载** [`install.bat`](https://gitee.com/fsy2004/meta-wingman/raw/master/install.bat)(只需这一个文件)。
+2. **双击运行 `install.bat`** —— 它会自动从 Gitee 把整个应用拉下来,并装好 R / Python 依赖(清华镜像)。
+3. **双击 `start.bat`** —— 启动后自动打开浏览器 `http://localhost:8000`。
+
+> 界面顶部有**环境状态条**:缺依赖时点「一键安装缺失依赖」即可自动补齐。
+> 前端已预构建(`frontend/dist`),终端用户**无需安装 Node.js**;后端在同端口一并托管界面。
+
+<details><summary>开发者:从源码手动跑</summary>
+
 ```powershell
-# 1) 一键装依赖(大陆镜像:Python 清华源 + R 包清华 CRAN 免编译)
-powershell -ExecutionPolicy Bypass -File setup\install.ps1
-
-# 2) 体检(可选,确认就绪)
-python setup\env_check.py
-
-# 3) 启动后端(端口 8000)
-cd backend ; python -m uvicorn app:app --port 8000
-
-# 4) 启动前端(另开一个终端,端口 5173)
-cd frontend ; npm install ; npm run dev
-# 浏览器打开 http://localhost:5173
+powershell -ExecutionPolicy Bypass -File setup\install.ps1   # 装依赖
+python setup\env_check.py                                    # 体检(可选)
+cd backend ; python -m uvicorn app:app --app-dir . --port 8000   # 后端(同端口托管 dist)→ http://localhost:8000
+# 改前端需重建:cd frontend ; npm install ; npm run build
 ```
-
-界面顶部有**环境状态条**:缺依赖时点「一键安装缺失依赖」即可自动补齐。
+</details>
 
 ## 输入数据
 

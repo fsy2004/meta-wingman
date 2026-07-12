@@ -9,6 +9,7 @@
 """
 from __future__ import annotations
 import csv
+import io
 import os
 import platform
 from pathlib import Path
@@ -48,14 +49,26 @@ def data_profile(path: str) -> dict:
 
     if ext in (".csv", ".tsv", ".txt"):
         delim = "\t" if ext == ".tsv" else ","
-        with open(p, "r", encoding="utf-8-sig", newline="") as f:
-            reader = csv.reader(f, delimiter=delim)
+        # ★多编码兜底:大陆 Excel 另存的 CSV 多为 GBK/CP936;utf-8 读失败会 500
+        text = None
+        for enc in ("utf-8-sig", "gb18030", "latin-1"):
+            try:
+                with open(p, "r", encoding=enc, newline="") as f:
+                    text = f.read()
+                prof["encoding"] = enc
+                break
+            except UnicodeDecodeError:
+                continue
+        if text is None:
+            prof["warn"] = "编码无法识别,请将文件另存为 UTF-8 编码的 CSV。"
+            return prof
+        try:                                              # 畸形 CSV(NUL/超长字段)不致 500
+            reader = csv.reader(io.StringIO(text), delimiter=delim)
             header = next(reader, [])
-            prof["n_cols"] = max(len(header) - 1, 0)     # 减掉首列(基因/样本名)
-            n = 0
-            for _ in reader:
-                n += 1
-            prof["n_rows"] = n                            # 数据行数(不含表头)
+            prof["n_cols"] = max(len(header) - 1, 0)      # 减掉首列
+            prof["n_rows"] = sum(1 for _ in reader)       # 数据行数(不含表头)
+        except (csv.Error, StopIteration) as e:
+            prof["warn"] = f"CSV 解析失败(可能非标准表格): {e}"
     elif ext in (".h5ad",):
         try:
             import anndata
@@ -103,7 +116,8 @@ def estimate_peak(mem_hint: dict, primary: dict) -> dict:
 def redlight(predicted_peak_bytes: int, available_bytes: int | None = None) -> dict:
     if available_bytes is None:
         available_bytes = psutil.virtual_memory().available
-    ratio = predicted_peak_bytes / available_bytes if available_bytes else float("inf")
+    ratio = predicted_peak_bytes / available_bytes if available_bytes else 9999.0
+    ratio = min(ratio, 9999.0)                            # 防 inf 序列化成非法 JSON
     if ratio < 0.5:
         level, advice = "green", "内存充足,可直接运行。"
     elif ratio < 0.8:

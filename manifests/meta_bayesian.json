@@ -14,8 +14,13 @@
   "description": "贝叶斯 normal-normal 层次模型的随机效应 meta 分析(bayesmeta,Röver 2020),报告合并效应 mu 与异质性 tau 的后验中位数及 95% 可信区间、95% 预测区间与研究级收缩估计。默认弱信息半正态 tau 先验(scale=0.5,对数尺度效应量推荐值)。输出发表级贝叶斯森林图(含收缩+预测区间)、mu/tau 后验密度曲线图与后验汇总表。由 meta-analysis-toolkit 驱动。",
   "inputs": [
     {
-      "name": "input", "flag": "--input", "label": "研究效应量 CSV", "format": "csv",
-      "required": true, "primary": true, "mem_axis": "n_rows",
+      "name": "input",
+      "flag": "--input",
+      "label": "研究效应量 CSV",
+      "format": "csv",
+      "required": true,
+      "primary": true,
+      "mem_axis": "n_rows",
       "example": "example_data/bayesian.csv",
       "spec": "每行一个研究:需列 yi(该研究效应量,如 log-OR/log-RR/SMD)与 sei(其标准误)+ 研究名列(默认 study)。若手头是 2×2 计数,可先用 metafor::escalc('OR', ai,bi,ci,di) 取 yi 与 sqrt(vi)=sei。"
     }
@@ -24,17 +29,42 @@
     "type": "object",
     "properties": {
       "tau_prior": {
-        "type": "string", "title": "异质性 tau 先验分布", "default": "halfnormal",
-        "enum": ["halfnormal", "halfcauchy", "uniform"]
+        "type": "string",
+        "title": "异质性 tau 先验分布",
+        "default": "halfnormal",
+        "enum": [
+          "halfnormal",
+          "halfcauchy",
+          "uniform"
+        ]
       },
       "tau_scale": {
-        "type": "number", "title": "tau 先验 scale(半正态/半柯西尺度)", "default": 0.5
+        "type": "number",
+        "title": "tau 先验 scale(半正态/半柯西尺度)",
+        "default": 0.5
       },
-      "slab": { "type": "string", "title": "研究名列名", "default": "study" }
+      "slab": {
+        "type": "string",
+        "title": "研究名列名",
+        "default": "study"
+      }
     }
   },
-  "param_flags": { "tau_prior": "--tau_prior", "tau_scale": "--tau_scale", "slab": "--slab" },
-  "outputs": [ { "glob": "*.png", "display": "image" } ],
+  "param_flags": {
+    "tau_prior": "--tau_prior",
+    "tau_scale": "--tau_scale",
+    "slab": "--slab"
+  },
+  "outputs": [
+    {
+      "glob": "*.png",
+      "display": "image"
+    },
+    {
+      "glob": "*.csv",
+      "display": "table"
+    }
+  ],
   "mem_hint": {
     "model": "linear",
     "killer_dim": "研究数",

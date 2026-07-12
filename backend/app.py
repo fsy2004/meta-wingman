@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import subprocess
 import time
+import uuid
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
@@ -104,8 +105,18 @@ class ProfileReq(BaseModel):
 @app.post("/api/dataprofile")
 def api_dataprofile(req: ProfileReq):
     m = load_manifest(req.method_id)
-    primary = next((s for s in m["inputs"] if s.get("primary")), m["inputs"][0])
-    path = req.path or str(lib_root(m) / m["workdir"] / primary["example"])
+    inputs = m.get("inputs") or []
+    primary = next((s for s in inputs if s.get("primary")), inputs[0] if inputs else None)
+    if req.path:
+        path = req.path
+    elif primary and primary.get("example"):
+        path = str(lib_root(m) / m["workdir"] / primary["example"])
+    else:  # 无输入/无示例的方法(纯参数型)→ 返回安全的绿灯占位,不裸索引崩 500
+        avail = round(psutil.virtual_memory().available / (1024 ** 3), 2)
+        return {"data_profile": {"note": "该方法无默认示例数据"},
+                "estimate": {"predicted_peak_gb": 0, "detail": "", "killer_dim": "", "calibrated": True},
+                "redlight": {"level": "green", "ratio": 0, "predicted_peak_gb": 0, "available_gb": avail,
+                             "advice": "该方法以参数为输入,无需数据体检。", "disclaimer": ""}}
     dp = doctor.data_profile(path)
     est = doctor.estimate_peak(m["mem_hint"], dp)
     rl = doctor.redlight(est["predicted_peak_bytes"])
@@ -123,7 +134,7 @@ def api_run(req: RunReq):
     m = load_manifest(req.method_id)
     root = lib_root(m)
     inputs = resolve_inputs(m, req.inputs)
-    outdir = RUNS / f"{req.method_id}_{time.strftime('%Y%m%d_%H%M%S')}"
+    outdir = RUNS / f"{req.method_id}_{time.strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}"
     cwd = root / m["workdir"]
     argv = runner.build_argv(m, root, inputs, req.params or {}, outdir)
     limit = int(psutil.virtual_memory().available * 0.9)
@@ -142,8 +153,9 @@ def api_file(path: str):
     p = Path(path).resolve()
     if not p.exists():
         raise HTTPException(404, "文件不存在")
+    # ★用 is_relative_to 做目录边界判断,避免 startswith 被同级兄弟目录(如 ..-private)绕过
     allowed = [RUNS.resolve(), LIB.resolve()] + [v.resolve() for v in LIBRARIES.values()]
-    if not any(str(p).startswith(str(a)) for a in allowed):
+    if not any(p.is_relative_to(a) for a in allowed):
         raise HTTPException(403, "路径不允许")
     return FileResponse(p)
 
@@ -181,3 +193,11 @@ def api_envinstall():
         yield json.dumps({"type": "done", "returncode": proc.returncode}, ensure_ascii=False) + "\n"
 
     return StreamingResponse(stream(), media_type="application/x-ndjson")
+
+
+# ---- 生产:后端在同端口托管已构建的前端(frontend/dist),终端用户无需 Node ----
+# 必须放在所有 /api 路由之后:mount("/") 只兜底未匹配路径,不影响 API。
+_dist = ROOT / "frontend" / "dist"
+if _dist.exists():
+    from fastapi.staticfiles import StaticFiles
+    app.mount("/", StaticFiles(directory=str(_dist), html=True), name="frontend")

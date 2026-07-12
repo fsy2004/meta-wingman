@@ -37,9 +37,32 @@ df <- read.csv(input, check.names = FALSE, stringsAsFactors = FALSE)
 cat(sprintf("Step 1/5: 读入 %d 行(format=%s, sm=%s, reference=%s)\n",
             nrow(df), format, sm, reference))
 
-## ---- 拟合网络 Meta(工具包 nma_run)----
+## ---- 拟合网络 Meta(工具包 nma_run;★按 format 转发对应列名,否则 arm 格式必崩)----
 cat("Step 2/5: 拟合频率学派网络 Meta 模型...\n")
-net <- nma_run(df, format = format, sm = sm, reference = reference)
+nma_args <- list(data = df, format = format, sm = sm, studlab = getarg("studlab", "studlab"))
+if (format == "arm") {                       # 臂格式:转发 treat + (event,n) 或 (n,mean,sd),按列名自动侦测
+  cols <- names(df)
+  nma_args$treat <- getarg("treat", "treat")
+  ev <- getarg("event", if ("event" %in% cols) "event" else NA)
+  mm <- getarg("mean",  if ("mean"  %in% cols) "mean"  else NA)
+  ss <- getarg("sd",    if ("sd"    %in% cols) "sd"    else NA)
+  nn <- getarg("n",     if ("n"     %in% cols) "n"     else NA)
+  if (!is.na(ev)) nma_args$event <- ev
+  if (!is.na(mm)) nma_args$mean  <- mm
+  if (!is.na(ss)) nma_args$sd    <- ss
+  if (!is.na(nn)) nma_args$n     <- nn
+  nma_args$allstudies <- TRUE
+  treats <- unique(as.character(df[[nma_args$treat]]))
+} else {                                     # 对比格式
+  nma_args$treat1 <- getarg("treat1", "treat1"); nma_args$treat2 <- getarg("treat2", "treat2")
+  nma_args$TE <- getarg("TE", "TE"); nma_args$seTE <- getarg("seTE", "seTE")
+  treats <- unique(c(as.character(df[[nma_args$treat1]]), as.character(df[[nma_args$treat2]])))
+}
+## 参考处理不在数据中会让 netmeta 崩 → 回退到 netmeta 默认参考
+nma_args$reference <- if (nzchar(reference) && reference %in% treats) reference else ""
+if (nzchar(reference) && !(reference %in% treats))
+  cat(sprintf("  (参考处理 '%s' 不在数据中,改用 netmeta 默认参考)\n", reference))
+net <- do.call(nma_run, nma_args)
 print(net)
 
 ## ---- PDF -> PNG 辅助 ----

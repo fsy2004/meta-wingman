@@ -14,8 +14,13 @@
   "description": "双变量随机效应诊断准确性 meta 分析(Reitsma 模型,等价于 Rutter-Gatsonis HSROC),输出发表级 SROC 曲线(含各研究散点)、敏感度/特异度森林图,以及合并敏感度、特异度、阳性/阴性似然比、诊断比值比(DOR)、SROC AUC 与阈值效应检验汇总表。基于 mada 包,由 meta-analysis-toolkit 驱动。",
   "inputs": [
     {
-      "name": "input", "flag": "--input", "label": "诊断研究 2×2 CSV", "format": "csv",
-      "required": true, "primary": true, "mem_axis": "n_rows",
+      "name": "input",
+      "flag": "--input",
+      "label": "诊断研究 2×2 CSV",
+      "format": "csv",
+      "required": true,
+      "primary": true,
+      "mem_axis": "n_rows",
       "example": "example_data/diagnostic.csv",
       "spec": "2×2 诊断表:每行一个研究,需列 TP,FN,FP,TN(真阳/假阴/假阳/真阴)+ 研究名列(默认 study,用于森林图标注)。示例为 mada::AuditC(AUDIT-C 酒精滥用筛查)。"
     }
@@ -23,14 +28,32 @@
   "params_schema": {
     "type": "object",
     "properties": {
-      "study": { "type": "string", "title": "研究名列名", "default": "study" },
+      "study": {
+        "type": "string",
+        "title": "研究名列名",
+        "default": "study"
+      },
       "add_correction": {
-        "type": "number", "title": "连续性校正(零格加数)", "default": 0.5
+        "type": "number",
+        "title": "连续性校正(零格加数)",
+        "default": 0.5
       }
     }
   },
-  "param_flags": { "study": "--study", "add_correction": "--add_correction" },
-  "outputs": [ { "glob": "*.png", "display": "image" } ],
+  "param_flags": {
+    "study": "--study",
+    "add_correction": "--add_correction"
+  },
+  "outputs": [
+    {
+      "glob": "*.png",
+      "display": "image"
+    },
+    {
+      "glob": "*.csv",
+      "display": "table"
+    }
+  ],
   "mem_hint": {
     "model": "linear",
     "killer_dim": "研究数",

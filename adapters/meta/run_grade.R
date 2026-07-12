@@ -35,16 +35,21 @@ df <- read.csv(input, check.names = FALSE, stringsAsFactors = FALSE)
 cat(sprintf("Step 1/3: 读入 %d 个结局(outcomes)\n", nrow(df)))
 
 ## 列名容错:label 亦可为 outcome;缺省升/降级列一律补 0。
-gcol <- function(name, default = 0) if (name %in% names(df)) df[[name]] else rep(default, nrow(df))
+## 整数域列:兼容备用列名;空白/非数字单元格一律当 0(否则 ma_grade 遇 NA 崩溃)
+gint <- function(name, alt = NULL) {
+  raw <- if (name %in% names(df)) df[[name]]
+         else if (!is.null(alt) && alt %in% names(df)) df[[alt]]
+         else rep(0, nrow(df))
+  v <- suppressWarnings(as.integer(raw)); v[is.na(v)] <- 0L; v
+}
 lab_vec <- if ("label" %in% names(df)) df[["label"]] else if ("outcome" %in% names(df)) df[["outcome"]] else paste("Outcome", seq_len(nrow(df)))
-
 design_vec <- if ("design" %in% names(df)) tolower(trimws(df[["design"]])) else rep("rct", nrow(df))
-rob_v  <- as.integer(gcol("rob"));            incon_v <- as.integer(gcol("inconsistency"))
-indir_v<- as.integer(gcol("indirectness"));   imp_v   <- as.integer(gcol("imprecision"))
-## pubbias 亦兼容 pub_bias;plausible_confounding 亦兼容 conf_plausible
-pb_v   <- as.integer(if ("pubbias" %in% names(df)) df[["pubbias"]] else gcol("pub_bias"))
-le_v   <- as.integer(gcol("large_effect"));   dr_v <- as.integer(gcol("dose_response"))
-cp_v   <- as.integer(if ("plausible_confounding" %in% names(df)) df[["plausible_confounding"]] else gcol("conf_plausible"))
+design_vec[is.na(design_vec) | !design_vec %in% c("rct", "observational")] <- "rct"   # 非法/空 design 兜底为 rct
+rob_v   <- gint("rob");           incon_v <- gint("inconsistency")
+indir_v <- gint("indirectness");  imp_v   <- gint("imprecision")
+pb_v    <- gint("pubbias", "pub_bias")
+le_v    <- gint("large_effect");  dr_v    <- gint("dose_response")
+cp_v    <- gint("plausible_confounding", "conf_plausible")
 
 ## ---- 逐行 GRADE 评级(工具包 ma_grade,纯 GRADE 代数:Guyatt 2011)----
 cat("Step 2/3: 逐结局 GRADE 证据分级...\n")

@@ -21,7 +21,7 @@ getarg <- function(k, d = NA) { i <- which(args == paste0("--", k)); if (length(
 input    <- getarg("input")
 outdir   <- getarg("outdir", "results")
 toolkit  <- getarg("toolkit", Sys.getenv("META_TOOLKIT", unset = ""))
-tool     <- getarg("tool", "ROB2")
+tool     <- toupper(getarg("tool", "ROB2"))   # 大写规整:robins-i→ROBINS-I,防 match.arg 大小写崩
 weighted <- tolower(getarg("weighted", "true")) %in% c("true", "1", "yes", "t")
 
 if (is.na(input)) stop("需要 --input CSV")
@@ -34,6 +34,10 @@ for (f in sort(list.files(file.path(toolkit, "R"), pattern = "\\.R$", full.names
 
 ## ---- 读数据 ----
 df <- read.csv(input, check.names = FALSE, stringsAsFactors = FALSE)
+if (weighted && !("Weight" %in% names(df))) {   # 无 Weight 列时加权汇总图会报错 → 自动降级
+  weighted <- FALSE
+  cat("  (未检测到 Weight 列,汇总图改用未加权)\n")
+}
 cat(sprintf("Step 1/3: 读入 %d 个研究,tool = %s,weighted = %s\n", nrow(df), tool, weighted))
 
 ## PDF -> PNG(供界面显示)

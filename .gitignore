@@ -1,8 +1,9 @@
-# 依赖 / 构建产物(绝不入库)
+# 依赖(绝不入库)
 frontend/node_modules/
-frontend/dist/
 frontend/src-tauri/target/
 node_modules/
+# 注:frontend/dist/ 【故意提交】——终端用户无需装 Node,后端直接托管这份已构建界面。
+# 改前端后需重新 npm run build 再提交 dist。
 
 # 运行时产物
 runs/

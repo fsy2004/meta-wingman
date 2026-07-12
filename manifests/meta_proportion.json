@@ -14,8 +14,13 @@
   "description": "单臂(单组)比例/患病率 meta 分析:随机效应 REML + 95% 预测区间,支持 Freeman-Tukey 双反正弦(PFT)与 logit(PLOGIT,研究规模异质时更稳)两种变换。输出发表级比例森林图与合并汇总表(合并比例 + 95%CI + 预测区间 + I²/Q 异质性,均已反变换回自然比例尺度)。基于 meta 包(metaprop),由 meta-analysis-toolkit 驱动。",
   "inputs": [
     {
-      "name": "input", "flag": "--input", "label": "研究数据 CSV", "format": "csv",
-      "required": true, "primary": true, "mem_axis": "n_rows",
+      "name": "input",
+      "flag": "--input",
+      "label": "研究数据 CSV",
+      "format": "csv",
+      "required": true,
+      "primary": true,
+      "mem_axis": "n_rows",
       "example": "example_data/proportion.csv",
       "spec": "单臂比例:每行一个研究,需列 xi(事件/阳性数)、ni(该组样本量)、study(研究名列)。事件数不得超过样本量。列名可通过 --event/--n/--studlab 覆盖。"
     }
@@ -24,16 +29,47 @@
     "type": "object",
     "properties": {
       "method": {
-        "type": "string", "title": "比例变换方法", "default": "PFT",
-        "enum": ["PFT", "PLOGIT"]
+        "type": "string",
+        "title": "比例变换方法",
+        "default": "PFT",
+        "enum": [
+          "PFT",
+          "PLOGIT"
+        ]
       },
-      "event": { "type": "string", "title": "事件数列名", "default": "xi" },
-      "n": { "type": "string", "title": "样本量列名", "default": "ni" },
-      "studlab": { "type": "string", "title": "研究名列名", "default": "study" }
+      "event": {
+        "type": "string",
+        "title": "事件数列名",
+        "default": "xi"
+      },
+      "n": {
+        "type": "string",
+        "title": "样本量列名",
+        "default": "ni"
+      },
+      "studlab": {
+        "type": "string",
+        "title": "研究名列名",
+        "default": "study"
+      }
     }
   },
-  "param_flags": { "method": "--method", "event": "--event", "n": "--n", "studlab": "--studlab" },
-  "outputs": [ { "glob": "*.png", "display": "image" } ],
+  "param_flags": {
+    "method": "--method",
+    "event": "--event",
+    "n": "--n",
+    "studlab": "--studlab"
+  },
+  "outputs": [
+    {
+      "glob": "*.png",
+      "display": "image"
+    },
+    {
+      "glob": "*.csv",
+      "display": "table"
+    }
+  ],
   "mem_hint": {
     "model": "linear",
     "killer_dim": "研究数",
