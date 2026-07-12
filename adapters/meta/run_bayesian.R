@@ -20,7 +20,7 @@ tau_scale <- as.numeric(getarg("tau_scale", "0.5"))
 slabcol   <- getarg("slab", "study")
 
 ## ---- 读数据(直接给定 yi,sei;这是贝叶斯 normal-normal 模型的输入)----
-df <- read.csv(input, check.names = FALSE, stringsAsFactors = FALSE)
+df <- mw_read_csv(input)
 if (!all(c("yi", "sei") %in% names(df))) stop("CSV 需含列 yi(效应量)与 sei(标准误)")
 slab_vec <- slab_of(df, slabcol)
 cat(sprintf("Step 1/3: 读入 %d 个研究,tau 先验 = %s(scale=%.3g)\n", nrow(df), tau_prior, tau_scale))

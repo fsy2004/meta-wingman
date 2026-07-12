@@ -22,7 +22,7 @@ tool     <- toupper(getarg("tool", "ROB2"))   # 大写规整:robins-i→ROBINS-I
 weighted <- tolower(getarg("weighted", "true")) %in% c("true", "1", "yes", "t")
 
 ## ---- 读数据 ----
-df <- read.csv(input, check.names = FALSE, stringsAsFactors = FALSE)
+df <- mw_read_csv(input)
 if (weighted && !("Weight" %in% names(df))) {   # 无 Weight 列时加权汇总图会报错 → 自动降级
   weighted <- FALSE
   cat("  (未检测到 Weight 列,汇总图改用未加权)\n")

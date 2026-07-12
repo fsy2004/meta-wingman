@@ -32,7 +32,9 @@ def _minver(s: str, fallback: tuple) -> tuple:
 
 _REQ = _load_req()
 # 依赖清单与版本门槛的单一权威来源 = config/requirements.json(读不到则用兜底)
-PY_PKGS = _REQ.get("python_packages") or ["fastapi", "uvicorn", "psutil"]
+PY_PKGS = _REQ.get("python_packages") or ["psutil", "sv-ttk", "Pillow"]
+# pip 发行名 → import 名(不同才需列;如 sv-ttk→sv_ttk、Pillow→PIL)。修:原先按发行名 find_spec 永远报缺。
+PY_IMPORTS = _REQ.get("python_import_names") or {}
 R_PKGS = _REQ.get("r_packages") or ["metafor", "meta", "netmeta", "mada", "bayesmeta", "robvis",
                                     "metasens", "estmeansd", "pdftools", "gridExtra", "ggplot2"]
 PY_MIN = _minver(_REQ.get("python_min", "3.9"), (3, 9))
@@ -58,14 +60,23 @@ def _find_r() -> str | None:
     return None
 
 
+def _has(pkg: str) -> bool:
+    name = PY_IMPORTS.get(pkg, pkg)          # 用 import 名而非 pip 发行名
+    try:
+        return importlib.util.find_spec(name) is not None
+    except (ImportError, ValueError):
+        return False
+
+
 def check_python() -> dict:
     v = sys.version_info
-    pkgs = {p: importlib.util.find_spec(p) is not None for p in PY_PKGS}
+    pkgs = {p: _has(p) for p in PY_PKGS}
     return {
         "present": True,
         "version": f"{v.major}.{v.minor}.{v.micro}",
         "version_ok": (v.major, v.minor) >= PY_MIN,
         "packages": pkgs,
+        "tkinter": _has("tkinter"),          # 原生界面必需(stdlib;精简版 Python 可能缺)
         "missing": [p for p, ok in pkgs.items() if not ok],
     }
 

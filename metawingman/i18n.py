@@ -1,0 +1,152 @@
+# -*- coding: utf-8 -*-
+"""极简中英双语:dict 字符串表 + 运行时切换(免重启)+ 持久化。不用 gettext。
+key 用稳定标识符;缺译回落 EN 再回落 key。both() 给中英并列(用于关键选择)。"""
+from __future__ import annotations
+import json
+
+from .paths import config_dir
+
+STRINGS = {
+    "en": {
+        "app_title": "Meta Wingman",
+        "tagline": "Local meta-analysis — pick a method, run, get figures & tables.",
+        "lang_button": "中文",
+        "r_ok": "R ready",
+        "r_missing": "R not found",
+        "r_locate": "Locate Rscript.exe…",
+        "select_method": "Select a method on the left.",
+        "data": "Data",
+        "use_example": "Built-in example",
+        "use_mine": "My CSV file",
+        "choose_file": "Choose CSV…",
+        "loaded": "Loaded",
+        "columns_needed": "Columns needed",
+        "download_template": "Download the example as a template",
+        "parameters": "Parameters",
+        "run_example": "Run (example data)",
+        "run_mine": "Run (my data)",
+        "running": "Running…",
+        "cancel": "Cancel",
+        "pick_first": "Choose a CSV first",
+        "log": "Log",
+        "results": "Results",
+        "figures": "Figures",
+        "tables": "Tables",
+        "memory": "Memory",
+        "open_folder": "Open output folder",
+        "done_ok": "Done — return code {rc} · {nimg} figures / {ntbl} tables",
+        "done_fail": "Failed (return code {rc}). See the log above.",
+        "no_r_title": "R not found",
+        "no_r_body": "Meta Wingman needs R (Rscript). Install R 4.x, or click 'Locate Rscript.exe' to point to it.",
+        "no_tk_body": "This Python has no tkinter. Reinstall Python from python.org (with Tcl/Tk).",
+        "peak_mem": "est. peak {gb} GB / {avail} GB free",
+    },
+    "zh": {
+        "app_title": "Meta Wingman",
+        "tagline": "本地 Meta 分析 —— 选方法、运行、出图出表。",
+        "lang_button": "EN",
+        "r_ok": "R 就绪",
+        "r_missing": "未找到 R",
+        "r_locate": "指定 Rscript.exe…",
+        "select_method": "在左侧选择一个方法。",
+        "data": "数据",
+        "use_example": "内置示例",
+        "use_mine": "我的 CSV 文件",
+        "choose_file": "选择 CSV…",
+        "loaded": "已载入",
+        "columns_needed": "所需列",
+        "download_template": "下载示例作模板",
+        "parameters": "参数",
+        "run_example": "运行(示例数据)",
+        "run_mine": "运行(我的数据)",
+        "running": "运行中…",
+        "cancel": "取消",
+        "pick_first": "请先选择 CSV",
+        "log": "日志",
+        "results": "结果",
+        "figures": "图",
+        "tables": "表",
+        "memory": "内存",
+        "open_folder": "打开输出目录",
+        "done_ok": "完成 —— 返回码 {rc} · {nimg} 图 / {ntbl} 表",
+        "done_fail": "运行失败(返回码 {rc})。见上方日志。",
+        "no_r_title": "未找到 R",
+        "no_r_body": "Meta Wingman 需要 R(Rscript)。请安装 R 4.x,或点「指定 Rscript.exe」手动指定。",
+        "no_tk_body": "此 Python 缺少 tkinter,请从 python.org 重装 Python(含 Tcl/Tk)。",
+        "peak_mem": "预估峰值 {gb} GB / 可用 {avail} GB",
+    },
+}
+
+
+def _detect_default() -> str:
+    try:
+        import ctypes
+        # 0x0409=en, 0x0804=zh-CN;取主语言 ID 低字节 0x04 = 中文
+        if (ctypes.windll.kernel32.GetUserDefaultUILanguage() & 0xFF) == 0x04:
+            return "zh"
+    except Exception:
+        pass
+    return "en"
+
+
+class _I18N:
+    def __init__(self):
+        self.lang = self._load()
+        self._binds = []
+
+    def _cfg_path(self):
+        return config_dir() / "config.json"
+
+    def _load(self):
+        try:
+            cfg = json.loads(self._cfg_path().read_text(encoding="utf-8"))
+            if cfg.get("lang") in STRINGS:
+                return cfg["lang"]
+        except Exception:
+            pass
+        return _detect_default()
+
+    def save(self):
+        try:
+            p = self._cfg_path()
+            cfg = {}
+            if p.exists():
+                cfg = json.loads(p.read_text(encoding="utf-8"))
+            cfg["lang"] = self.lang
+            p.write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding="utf-8")
+        except Exception:
+            pass
+
+    def t(self, key, **kw):
+        s = STRINGS.get(self.lang, {}).get(key) or STRINGS["en"].get(key) or key
+        return s.format(**kw) if kw else s
+
+    def both(self, key):
+        return f'{STRINGS["en"].get(key, key)} / {STRINGS["zh"].get(key, key)}'
+
+    def title_of(self, manifest):
+        """方法标题按当前语言取:英文用 title_en,中文用 title。"""
+        if self.lang == "en":
+            return manifest.get("title_en") or manifest.get("title") or manifest.get("id")
+        return manifest.get("title") or manifest.get("title_en") or manifest.get("id")
+
+    def bind(self, fn):
+        """注册"重贴文案"回调,并立即执行一次。"""
+        self._binds.append(fn)
+        fn()
+
+    def toggle(self):
+        self.set_language("zh" if self.lang == "en" else "en")
+
+    def set_language(self, lang):
+        if lang in STRINGS and lang != self.lang:
+            self.lang = lang
+            self.save()
+            for fn in list(self._binds):
+                try:
+                    fn()
+                except Exception:
+                    pass
+
+
+I18N = _I18N()

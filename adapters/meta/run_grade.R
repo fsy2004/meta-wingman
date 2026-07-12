@@ -20,7 +20,7 @@ source(file.path(dirname(sub("^--file=", "", commandArgs(FALSE)[grep("^--file=",
 init <- mw_init(); input <- init$input; outdir <- init$outdir
 
 ## ---- 读数据 ----
-df <- read.csv(input, check.names = FALSE, stringsAsFactors = FALSE)
+df <- mw_read_csv(input)
 cat(sprintf("Step 1/3: 读入 %d 个结局(outcomes)\n", nrow(df)))
 
 ## 列名容错:label 亦可为 outcome;缺省升/降级列一律补 0。

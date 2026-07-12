@@ -7,6 +7,27 @@
 args <- commandArgs(trailingOnly = TRUE)
 getarg <- function(k, d = NA) { i <- which(args == paste0("--", k)); if (length(i) && i[1] < length(args)) args[i[1] + 1] else d }
 
+## 读 CSV:先 UTF-8,失败(如中文 Excel 默认导出的 GBK)自动回退 GBK/GB18030;--encoding 可显式指定。
+## 修复:原先裸 read.csv 在 Windows(R 4.2+ 原生 UTF-8)读 GBK 文件会 "invalid multibyte string" 直接崩。
+mw_read_csv <- function(path) {
+  enc <- getarg("encoding", NA)
+  if (!is.na(enc) && nzchar(enc))   # 显式指定则直接信任用户
+    return(read.csv(path, check.names = FALSE, stringsAsFactors = FALSE, fileEncoding = enc))
+  ## 自动:UTF-8 → GBK → GB18030。★读 GBK 文件时 fileEncoding="UTF-8" 不报 error 而是
+  ## warning + 返回 0 行,所以必须把 warning / 0 行 也当"该编码不适",回退下一个。
+  try_read <- function(e) {
+    ok <- TRUE
+    df <- tryCatch(
+      withCallingHandlers(
+        read.csv(path, check.names = FALSE, stringsAsFactors = FALSE, fileEncoding = e),
+        warning = function(w) { ok <<- FALSE; invokeRestart("muffleWarning") }),
+      error = function(err) { ok <<- FALSE; NULL })
+    if (ok && !is.null(df) && nrow(df) >= 1) df else NULL
+  }
+  for (e in c("UTF-8", "GBK", "GB18030")) { df <- try_read(e); if (!is.null(df)) return(df) }
+  read.csv(path, check.names = FALSE, stringsAsFactors = FALSE, fileEncoding = "latin1")  # 兜底:永不因编码崩
+}
+
 ## 读 input/outdir/toolkit + 基本校验 + 建输出目录 + 按 00→22 顺序 source 工具包(载入全部函数与 %||% 等依赖)。
 ## need_toolkit=FALSE 用于不依赖工具包的方法(如 dataprep_msd,仅用 estmeansd)。
 mw_init <- function(need_input = TRUE, need_toolkit = TRUE) {

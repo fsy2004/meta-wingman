@@ -26,7 +26,7 @@ method    <- getarg("method", "REML")
 knha      <- tolower(getarg("knha", "true")) %in% c("true", "1", "yes", "t")
 
 ## ---- 读数据 + 算效应量(二分类 2x2 -> OR)----
-df <- read.csv(input, check.names = FALSE, stringsAsFactors = FALSE)
+df <- mw_read_csv(input)
 cat(sprintf("Step 1/5: 读入 %d 个研究,measure = %s;亚组 = %s,调节变量 = %s\n",
             nrow(df), measure, subgroup, moderator))
 

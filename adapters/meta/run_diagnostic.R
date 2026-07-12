@@ -19,7 +19,7 @@ studycol <- getarg("study", "study")
 add_corr <- as.numeric(getarg("add_correction", "0.5"))
 
 ## ---- 读数据 ----
-df <- read.csv(input, check.names = FALSE, stringsAsFactors = FALSE)
+df <- mw_read_csv(input)
 need <- c("TP", "FN", "FP", "TN")
 if (!all(need %in% names(df)))
   stop(sprintf("CSV 缺列:需要 %s(每行一个研究的 2x2 诊断表)", paste(need, collapse = ", ")))

@@ -20,7 +20,7 @@ slabcol <- getarg("studlab", "study")
 method  <- toupper(getarg("method", "PFT"))
 
 ## ---- 读数据 ----
-df <- read.csv(input, check.names = FALSE, stringsAsFactors = FALSE)
+df <- mw_read_csv(input)
 cat(sprintf("Step 1/3: 读入 %d 个研究,method = %s\n", nrow(df), method))
 col <- function(nm) { if (nm %in% names(df)) df[[nm]] else stop(sprintf("CSV 缺列 '%s'", nm)) }
 event_v <- col(eventc)

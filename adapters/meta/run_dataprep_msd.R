@@ -13,7 +13,7 @@ source(file.path(dirname(sub("^--file=", "", commandArgs(FALSE)[grep("^--file=",
 init <- mw_init(need_toolkit = FALSE); input <- init$input; outdir <- init$outdir
 method <- tolower(getarg("method", "qe"))
 
-df <- read.csv(input, check.names = FALSE, stringsAsFactors = FALSE)
+df <- mw_read_csv(input)
 if (nrow(df) == 0) stop("输入 CSV 没有数据行,请检查文件。")
 cat(sprintf("Step 1/2: 读入 %d 行,方法 = %s\n", nrow(df), method))
 gv <- function(col) if (col %in% names(df)) suppressWarnings(as.numeric(df[[col]])) else rep(NA_real_, nrow(df))

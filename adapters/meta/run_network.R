@@ -22,7 +22,7 @@ reference    <- getarg("reference", "plac")
 small_values <- tolower(getarg("small_values", "desirable"))
 
 ## ---- 读数据 ----
-df <- read.csv(input, check.names = FALSE, stringsAsFactors = FALSE)
+df <- mw_read_csv(input)
 cat(sprintf("Step 1/5: 读入 %d 行(format=%s, sm=%s, reference=%s)\n",
             nrow(df), format, sm, reference))
 

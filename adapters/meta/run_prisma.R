@@ -25,7 +25,7 @@ init <- mw_init(); input <- init$input; outdir <- init$outdir
 cex <- as.numeric(getarg("cex", "0.8"))
 
 ## ---- 读长表并解析回 counts 具名 list ----
-df <- read.csv(input, check.names = FALSE, stringsAsFactors = FALSE)
+df <- mw_read_csv(input)
 need <- c("field", "value")
 if (!all(need %in% names(df))) stop("CSV 需含列: field, value(可选 subkey)")
 if (!"subkey" %in% names(df)) df$subkey <- ""

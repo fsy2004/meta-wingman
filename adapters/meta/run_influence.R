@@ -22,7 +22,7 @@ method  <- getarg("method", "REML")
 knha    <- tolower(getarg("knha", "true")) %in% c("true", "1", "yes", "t")
 
 ## ---- 读数据 + 算效应量 ----
-df <- read.csv(input, check.names = FALSE, stringsAsFactors = FALSE)
+df <- mw_read_csv(input)
 cat(sprintf("Step 1/4: 读入 %d 个研究,measure = %s\n", nrow(df), measure))
 es <- mw_escalc(df, measure)
 slab_vec <- slab_of(df, slabcol)
