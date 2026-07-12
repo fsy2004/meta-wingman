@@ -8,6 +8,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -54,8 +55,8 @@ def check_python() -> dict:
 def check_r() -> dict:
     rscript = _find_r()
     if not rscript:
-        return {"present": False, "rscript": None, "version": None,
-                "packages": {p: False for p in R_PKGS}, "missing": R_PKGS[:]}
+        return {"present": False, "rscript": None, "version": None, "version_num": None,
+                "version_ok": False, "packages": {p: False for p in R_PKGS}, "missing": R_PKGS[:]}
     try:
         ver = subprocess.run([rscript, "--version"], capture_output=True, text=True, timeout=30)
         vtxt = (ver.stdout or ver.stderr or "").splitlines()[0].strip()
@@ -70,8 +71,12 @@ def check_r() -> dict:
         missing = [m for m in (out.stdout.strip().split(",") if out.stdout.strip() else []) if m]
     except Exception:
         missing = R_PKGS[:]
+    m = re.search(r"(\d+)\.(\d+)(?:\.(\d+))?", vtxt or "")   # R 版本门槛:metafor 5.x/新包需 R ≥ 4.0
+    vnum = "{}.{}.{}".format(m.group(1), m.group(2), m.group(3) or "0") if m else None
+    version_ok = (int(m.group(1)), int(m.group(2))) >= (4, 0) if m else True
     return {
-        "present": True, "rscript": rscript, "version": vtxt,
+        "present": True, "rscript": rscript, "version": vtxt, "version_num": vnum,
+        "version_ok": version_ok,
         "packages": {p: (p not in missing) for p in R_PKGS},
         "missing": missing,
     }
@@ -80,7 +85,8 @@ def check_r() -> dict:
 def check() -> dict:
     py = check_python()
     r = check_r()
-    ready = (py["version_ok"] and not py["missing"] and r["present"] and not r["missing"])
+    ready = (py["version_ok"] and not py["missing"]
+             and r["present"] and r.get("version_ok", True) and not r["missing"])
     return {"ready": ready, "python": py, "r": r}
 
 
@@ -89,10 +95,11 @@ def _print(rep: dict):
         print(f"  {'✅' if ok else '❌'} {name:22} {extra}")
     print("=" * 58 + "\nMeta Wingman 环境体检\n" + "=" * 58)
     py, r = rep["python"], rep["r"]
-    line("Python", py["version_ok"], f"{py['version']}")
+    line("Python", py["version_ok"], py["version"] + ("" if py["version_ok"] else "  ⚠️ 需 ≥ 3.9"))
     for p, ok in py["packages"].items():
         line(f"  py: {p}", ok)
-    line("R (Rscript)", r["present"], r["version"] or "未找到")
+    r_ok = r["present"] and r.get("version_ok", True)
+    line("R (Rscript)", r_ok, (r["version"] or "未找到") + ("" if r.get("version_ok", True) else "  ⚠️ 建议 ≥ 4.0"))
     for p, ok in r["packages"].items():
         line(f"  R: {p}", ok)
     print("-" * 58)

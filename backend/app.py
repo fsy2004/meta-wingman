@@ -11,6 +11,7 @@ import subprocess
 import time
 import uuid
 from pathlib import Path
+from typing import Optional
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -41,6 +42,11 @@ def lib_root(manifest: dict) -> Path:
     """按 manifest 的 library 字段解析所属库根目录(默认生信库)。"""
     key = manifest.get("library", "bioinfo")
     return LIB if key == "bioinfo" else LIBRARIES[key]
+
+
+def _within(p: Path, base: Path) -> bool:
+    """p 是否在 base 目录内(精确目录边界;兼容 Python 3.6+,不用 3.9 的 is_relative_to)。"""
+    return p == base or base in p.parents
 
 
 def run_env() -> dict:
@@ -99,7 +105,7 @@ def api_method(mid: str):
 
 class ProfileReq(BaseModel):
     method_id: str
-    path: str | None = None   # 主输入路径;不给则用 example
+    path: Optional[str] = None   # 主输入路径;不给则用 example(Optional 兼容 Python 3.9)
 
 
 @app.post("/api/dataprofile")
@@ -125,8 +131,8 @@ def api_dataprofile(req: ProfileReq):
 
 class RunReq(BaseModel):
     method_id: str
-    inputs: dict | None = None
-    params: dict | None = None
+    inputs: Optional[dict] = None
+    params: Optional[dict] = None
 
 
 @app.post("/api/run")
@@ -153,9 +159,9 @@ def api_file(path: str):
     p = Path(path).resolve()
     if not p.exists():
         raise HTTPException(404, "文件不存在")
-    # ★用 is_relative_to 做目录边界判断,避免 startswith 被同级兄弟目录(如 ..-private)绕过
+    # ★用精确目录边界判断,避免 startswith 被同级兄弟目录(如 ..-private)绕过
     allowed = [RUNS.resolve(), LIB.resolve()] + [v.resolve() for v in LIBRARIES.values()]
-    if not any(p.is_relative_to(a) for a in allowed):
+    if not any(_within(p, a) for a in allowed):
         raise HTTPException(403, "路径不允许")
     return FileResponse(p)
 

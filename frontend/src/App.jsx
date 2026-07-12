@@ -140,8 +140,8 @@ export default function App() {
         <div className={'envbar ' + (env.ready ? 'ok' : 'warn')}>
           <span className="envstat">
             {env.ready ? '🟢 环境就绪' : '🟡 环境缺依赖'}
-            {'  ·  '}R {env.r?.present ? '✓' : '✗'}
-            {'  ·  '}Python {env.python?.present ? '✓' : '✗'}
+            {'  ·  '}R {env.r?.present ? (env.r.version_num || '✓') : '✗'}{env.r?.present && env.r?.version_ok === false && ' ⚠️建议≥4.0'}
+            {'  ·  '}Python {env.python?.present ? (env.python.version || '✓') : '✗'}{env.python?.version_ok === false && ' ⚠️需≥3.9'}
             {'  ·  '}R 包 {Object.values(env.r?.packages || {}).filter(Boolean).length}/{Object.keys(env.r?.packages || {}).length}
             {!env.r?.present && '  ·  需先装 R 4.x'}
           </span>

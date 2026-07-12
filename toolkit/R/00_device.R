@@ -8,5 +8,10 @@
 ## 与 ggplot2::ggsave(device = mw_pdf) 的 mw_pdf(filename=, width=, height=)。
 ## =====================================================================
 mw_pdf <- function(filename, ..., family = getOption("mw.font", "Arial")) {
-  grDevices::cairo_pdf(filename = filename, ..., family = family)
+  if (isTRUE(capabilities("cairo"))) {
+    grDevices::cairo_pdf(filename = filename, ..., family = family)
+  } else {
+    ## 极少数 R 未编译 cairo:退回基础 pdf(不传 Arial;Unicode 可能退化,但保证不崩)
+    grDevices::pdf(file = filename, ...)
+  }
 }
