@@ -1,4 +1,4 @@
-# 同步推送到 Gitee 与 GitHub —— 让两个仓库内容保持一致。
+﻿# 同步推送到 Gitee 与 GitHub —— 让两个仓库内容保持一致。
 # 用法:
 #   powershell -ExecutionPolicy Bypass -File dev\push-both.ps1                # 推当前已提交内容
 #   powershell -ExecutionPolicy Bypass -File dev\push-both.ps1 "提交说明"      # 先 add+commit 再推
