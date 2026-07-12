@@ -1,0 +1,47 @@
+{
+  "id": "meta_influence",
+  "title": "影响分析 / 稳健性诊断(留一法 + Baujat + 累积 + GOSH)",
+  "title_en": "Influence & robustness diagnostics",
+  "category": "meta",
+  "family": "Meta 分析",
+  "language": "R",
+  "library": "launcher",
+  "interp": "Rscript",
+  "status": "turnkey",
+  "tier": "T1",
+  "entry": "adapters/meta/run_influence.R",
+  "workdir": "adapters/meta",
+  "description": "对已合并的随机效应 meta 分析做敏感性 / 异常研究诊断:留一法(LOO,逐一剔除并标记是否翻转显著性)、案例删除影响诊断(学生化残差 / Cook 距离 / DFFITS / 杠杆 / 协方差比 / metafor 影响标记)、Baujat 图(单研究对异质性 Q 的贡献 vs 对合并值的影响)、累积 meta 分析(按精度或年份逐个纳入看漂移)、GOSH 图(k≤20 时枚举子集看异质性是否由离群簇驱动)。全部为可引用诊断量,由 metafor 计算;图均非条形(散点 / caterpillar / 累积森林)。基于 meta-analysis-toolkit。",
+  "inputs": [
+    {
+      "name": "input", "flag": "--input", "label": "研究数据 CSV", "format": "csv",
+      "required": true, "primary": true, "mem_axis": "n_rows",
+      "example": "example_data/influence.csv",
+      "spec": "二分类 2×2:每行一个研究,需列 ai,bi,ci,di(处理组事件/非事件、对照组事件/非事件)+ 研究名列(默认 study)。连续型改选 SMD/MD 并提供 m1i,sd1i,n1i,m2i,sd2i,n2i;相关型 ZCOR 提供 ri,ni。"
+    }
+  ],
+  "params_schema": {
+    "type": "object",
+    "properties": {
+      "measure": {
+        "type": "string", "title": "效应量", "default": "OR",
+        "enum": ["OR", "RR", "RD", "PETO", "SMD", "MD", "ROM", "ZCOR"]
+      },
+      "method": {
+        "type": "string", "title": "τ² 估计方法", "default": "REML",
+        "enum": ["REML", "DL", "PM", "SJ", "EB", "ML", "HE"]
+      },
+      "knha": { "type": "boolean", "title": "Knapp-Hartung 校正(推荐)", "default": true },
+      "slab": { "type": "string", "title": "研究名列名", "default": "study" }
+    }
+  },
+  "param_flags": { "measure": "--measure", "method": "--method", "knha": "--knha", "slab": "--slab" },
+  "outputs": [ { "glob": "*.png", "display": "image" } ],
+  "mem_hint": {
+    "model": "linear",
+    "killer_dim": "研究数",
+    "matrix_copies": 3,
+    "calibrated": true,
+    "note": "meta 汇总数据内存极小, 恒绿"
+  }
+}

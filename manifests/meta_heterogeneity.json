@@ -1,0 +1,49 @@
+{
+  "id": "meta_heterogeneity",
+  "title": "异质性分析(亚组 + Meta 回归)",
+  "title_en": "Heterogeneity: subgroup & meta-regression",
+  "category": "meta",
+  "family": "Meta 分析",
+  "language": "R",
+  "library": "launcher",
+  "interp": "Rscript",
+  "status": "turnkey",
+  "tier": "T1",
+  "entry": "adapters/meta/run_heterogeneity.R",
+  "workdir": "adapters/meta",
+  "description": "解释(而非仅量化)研究间异质性:先拟合随机效应基线模型(REML + Knapp-Hartung),再按类别调节变量做亚组分析(每亚组合并估计 + I²,附 Q_M 亚组间差异检验),并按连续调节变量做 meta 回归(系数表、Omnibus Q_M、伪 R²)与发表级气泡图。基于 metafor 混合效应模型,由 meta-analysis-toolkit 驱动。",
+  "inputs": [
+    {
+      "name": "input", "flag": "--input", "label": "研究数据 CSV", "format": "csv",
+      "required": true, "primary": true, "mem_axis": "n_rows",
+      "example": "example_data/heterogeneity.csv",
+      "spec": "二分类 2×2:每行一个研究,需列 ai,bi,ci,di(处理组事件/非事件、对照组事件/非事件)+ 研究名列(默认 study)+ 一个类别调节列(默认 alloc,用于亚组)+ 一个数值调节列(默认 ablat,用于 meta 回归气泡图)。"
+    }
+  ],
+  "params_schema": {
+    "type": "object",
+    "properties": {
+      "measure": {
+        "type": "string", "title": "效应量", "default": "OR",
+        "enum": ["OR", "RR", "RD", "PETO"]
+      },
+      "subgroup": { "type": "string", "title": "亚组列名(类别调节变量)", "default": "alloc" },
+      "moderator": { "type": "string", "title": "Meta 回归列名(连续调节变量)", "default": "ablat" },
+      "method": {
+        "type": "string", "title": "τ² 估计方法", "default": "REML",
+        "enum": ["REML", "DL", "PM", "SJ", "EB", "ML", "HE"]
+      },
+      "knha": { "type": "boolean", "title": "Knapp-Hartung 校正(推荐)", "default": true },
+      "slab": { "type": "string", "title": "研究名列名", "default": "study" }
+    }
+  },
+  "param_flags": { "measure": "--measure", "subgroup": "--subgroup", "moderator": "--moderator", "method": "--method", "knha": "--knha", "slab": "--slab" },
+  "outputs": [ { "glob": "*.png", "display": "image" } ],
+  "mem_hint": {
+    "model": "linear",
+    "killer_dim": "研究数",
+    "matrix_copies": 3,
+    "calibrated": true,
+    "note": "meta 汇总数据内存极小, 恒绿"
+  }
+}

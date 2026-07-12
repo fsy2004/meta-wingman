@@ -1,0 +1,11 @@
+{
+  "product": "Meta Wingman",
+  "module_library": ".",
+  "libraries": {
+    "meta_toolkit": "toolkit",
+    "launcher": "."
+  },
+  "manifests_dir": "manifests",
+  "runs_dir": "runs",
+  "note": "路径均相对本目录(Meta Wingman 根),下载到任何位置即可运行。toolkit=内置(vendored)的 meta 分析工具包(MIT)。"
+}
