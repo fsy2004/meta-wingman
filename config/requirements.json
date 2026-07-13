@@ -4,10 +4,12 @@
   "r_min": "4.0",
   "python_packages": [
     "psutil",
-    "Pillow"
+    "Pillow",
+    "python-docx"
   ],
   "python_import_names": {
-    "Pillow": "PIL"
+    "Pillow": "PIL",
+    "python-docx": "docx"
   },
   "r_packages": [
     "metafor",

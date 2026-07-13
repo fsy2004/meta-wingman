@@ -535,7 +535,7 @@ class MainWindow:
         imgs = [o for o in r.outputs if o.lower().endswith(".png")]
         tbls = [o for o in r.outputs if o.lower().endswith(".csv")]
         if rc == 0:
-            self.results.show(r.outputs, r.outdir)
+            self.results.show(r.outputs, r.outdir, r.m, r.params)
             self.nb.select(1)
             self._append_log("\n" + I18N.t("done_ok", rc=rc, nimg=len(imgs), ntbl=len(tbls)))
         else:

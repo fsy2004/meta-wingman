@@ -27,9 +27,13 @@ class ResultsView(ttk.Frame):
         self.btn_pdf = ttk.Button(bar, style="Toolbutton", command=self._save_pdf)
         self.btn_copy = ttk.Button(bar, style="Toolbutton", command=self._copy_table)
         self.btn_repro = ttk.Button(bar, style="Toolbutton", command=self._save_repro)
+        self.btn_report = ttk.Button(bar, style="Toolbutton", command=self._save_report)
         self.btn_open = ttk.Button(bar, style="Toolbutton", command=self._open)
-        for b in (self.btn_png, self.btn_pdf, self.btn_copy, self.btn_repro, self.btn_open):
+        for b in (self.btn_png, self.btn_pdf, self.btn_copy, self.btn_repro, self.btn_report, self.btn_open):
             b.pack(side="left", padx=(0, 6))
+        self._manifest = None
+        self._params = None
+        self._outputs = []
 
         self.nb = ttk.Notebook(self)
         self.nb.pack(fill="both", expand=True)
@@ -42,6 +46,7 @@ class ResultsView(ttk.Frame):
         self.btn_pdf.config(text=I18N.t("save_as") + " " + I18N.t("export_pdf"))
         self.btn_copy.config(text=I18N.t("copy_table"))
         self.btn_repro.config(text=I18N.t("export_script"))
+        self.btn_report.config(text=I18N.t("export_report"))
         self.btn_open.config(text=I18N.t("open_folder"))
 
     def clear(self):
@@ -51,9 +56,12 @@ class ResultsView(ttk.Frame):
         self._tab_path.clear()
         self._sync()
 
-    def show(self, outputs, outdir=None):
+    def show(self, outputs, outdir=None, manifest=None, params=None):
         self.clear()
         self.outdir = outdir
+        self._manifest = manifest
+        self._params = params or {}
+        self._outputs = list(outputs)
         for o in outputs:
             if o.lower().endswith(".png"):
                 self._image_tab(o)
@@ -81,6 +89,7 @@ class ResultsView(ttk.Frame):
         self.btn_copy.config(state="normal" if is_tbl else "disabled")
         has_repro = bool(self.outdir and os.path.exists(os.path.join(self.outdir, "reproduce.R")))
         self.btn_repro.config(state="normal" if has_repro else "disabled")
+        self.btn_report.config(state="normal" if (self._outputs and self._manifest) else "disabled")
         self.btn_open.config(state="normal" if self.outdir else "disabled")
 
     def _save_png(self):
@@ -131,6 +140,22 @@ class ResultsView(ttk.Frame):
             messagebox.showinfo("Meta Wingman", I18N.t("repro_done", d=dst))
         except Exception:
             pass
+
+    def _save_report(self):
+        from tkinter import messagebox
+        if not (self._outputs and self._manifest):
+            return
+        dst = filedialog.asksaveasfilename(
+            defaultextension=".docx", initialfile=(self._manifest.get("id", "report") + ".docx"),
+            filetypes=[("Word", "*.docx")])
+        if not dst:
+            return
+        try:
+            from . import report
+            report.build_report(self._manifest, self._params, self._outputs, self.outdir, dst)
+            messagebox.showinfo("Meta Wingman", I18N.t("report_done", d=dst))
+        except Exception as e:
+            messagebox.showerror("Meta Wingman", I18N.t("report_fail") + "\n" + str(e))
 
     def _open(self):
         if self._on_open_folder:
