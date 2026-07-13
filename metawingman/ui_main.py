@@ -13,6 +13,12 @@ from . import engine
 from . import theme
 from . import validate as mw_validate
 from .i18n import I18N
+
+try:
+    import tksheet
+    _HAS_TKSHEET = True
+except Exception:
+    _HAS_TKSHEET = False
 from .form import ParamForm
 from .results import ResultsView
 from .redlight import estimate as mem_estimate
@@ -70,7 +76,7 @@ class MainWindow:
             "params": (form.values() if form else {}),
             "mapping": self._collect_map(),
         }
-        if self.data_source.get() in ("mine", "paste") and self.user_file and os.path.exists(self.user_file):
+        if self.data_source.get() in ("mine", "paste", "grid") and self.user_file and os.path.exists(self.user_file):
             st["data_name"] = os.path.basename(self.user_file)
             for enc in ("utf-8-sig", "gb18030", "latin-1"):
                 try:
@@ -86,7 +92,7 @@ class MainWindow:
             return
         self.pick(mid)                                   # 载方法 + 建表单(会重置为示例)
         ds = st.get("data_source", "example")
-        if ds in ("mine", "paste") and st.get("data_csv"):
+        if ds in ("mine", "paste", "grid") and st.get("data_csv"):
             from .paths import run_root
             d = run_root() / "_project"
             d.mkdir(parents=True, exist_ok=True)
@@ -247,14 +253,17 @@ class MainWindow:
         self.rb_mine.grid(row=0, column=1, sticky="w")
         self.rb_paste = ttk.Radiobutton(ds, variable=self.data_source, value="paste", command=self._on_source)
         self.rb_paste.grid(row=0, column=2, sticky="w", padx=(0, 16))
+        if _HAS_TKSHEET:
+            self.rb_grid = ttk.Radiobutton(ds, variable=self.data_source, value="grid", command=self._on_source)
+            self.rb_grid.grid(row=0, column=3, sticky="w", padx=(0, 16))
         self.btn_file = ttk.Button(ds, style="Toolbutton", command=self._choose_file)
-        self.btn_file.grid(row=0, column=3, sticky="w", padx=16)
+        self.btn_file.grid(row=0, column=4, sticky="w", padx=16)
         self.lbl_file = ttk.Label(ds, style="Muted.TLabel")
-        self.lbl_file.grid(row=1, column=0, columnspan=3, sticky="w", pady=(4, 0))
+        self.lbl_file.grid(row=1, column=0, columnspan=5, sticky="w", pady=(4, 0))
         self.lbl_cols = ttk.Label(ds, style="Muted.TLabel", wraplength=680, justify="left")
-        self.lbl_cols.grid(row=2, column=0, columnspan=3, sticky="w", pady=(2, 0))
+        self.lbl_cols.grid(row=2, column=0, columnspan=5, sticky="w", pady=(2, 0))
         self.lbl_mem = ttk.Label(ds, style="Muted.TLabel")
-        self.lbl_mem.grid(row=3, column=0, columnspan=3, sticky="w", pady=(4, 0))
+        self.lbl_mem.grid(row=3, column=0, columnspan=5, sticky="w", pady=(4, 0))
 
         # 粘贴/录入面板(选"粘贴数据"时显示)
         self.paste_frame = ttk.Frame(top)
@@ -265,6 +274,20 @@ class MainWindow:
         self.paste_text.pack(fill="x")
         self.btn_paste_use = ttk.Button(self.paste_frame, style="Toolbutton", command=self._use_pasted)
         self.btn_paste_use.pack(anchor="w", pady=(4, 0))
+
+        # 录入表格(选"录入表格"时显示;列 = 分析所需角色,可编辑/粘贴/右键加删行 → 免映射)
+        if _HAS_TKSHEET:
+            self.grid_frame = ttk.Frame(top)
+            self.lbl_grid_hint = ttk.Label(self.grid_frame, style="Muted.TLabel", wraplength=680, justify="left")
+            self.lbl_grid_hint.pack(anchor="w", pady=(4, 2))
+            self.sheet = tksheet.Sheet(self.grid_frame, height=180)
+            self.sheet.enable_bindings(("single_select", "drag_select", "row_select", "column_select",
+                                        "edit_cell", "paste", "copy", "cut", "delete",
+                                        "rc_insert_row", "rc_delete_row", "arrowkeys"))
+            self.sheet.pack(fill="x")
+            self.btn_grid_use = ttk.Button(self.grid_frame, style="Toolbutton", command=self._use_grid)
+            self.btn_grid_use.pack(anchor="w", pady=(4, 0))
+            self._grid_roles = []
 
         # 列映射面板(上传/粘贴 + 该方法有列形状时显示)
         self.map_frame = ttk.Frame(top)
@@ -319,6 +342,10 @@ class MainWindow:
         self.btn_file.config(text=I18N.t("choose_file"))
         self.btn_paste_use.config(text=I18N.t("paste_use"))
         self.lbl_paste_hint.config(text=I18N.t("paste_hint"))
+        if _HAS_TKSHEET:
+            self.rb_grid.config(text=I18N.both("use_grid"))
+            self.btn_grid_use.config(text=I18N.t("grid_use"))
+            self.lbl_grid_hint.config(text=I18N.t("grid_hint"))
         self.btn_cancel.config(text=I18N.t("cancel"))
         self.hdr_data.config(text=I18N.t("data"))
         self.hdr_params.config(text=I18N.t("parameters"))
@@ -399,10 +426,13 @@ class MainWindow:
 
     def _on_source(self):
         src = self.data_source.get()
-        if src == "paste":
-            self.paste_frame.pack(fill="x", pady=(2, 0), before=self.map_frame)
-        else:
-            self.paste_frame.pack_forget()
+        self.paste_frame.pack(fill="x", pady=(2, 0), before=self.map_frame) if src == "paste" else self.paste_frame.pack_forget()
+        if _HAS_TKSHEET:
+            if src == "grid":
+                self.grid_frame.pack(fill="x", pady=(2, 0), before=self.map_frame)
+                self._populate_grid()
+            else:
+                self.grid_frame.pack_forget()
         if src == "mine" and not self.user_file:
             self._choose_file()
             return
@@ -410,6 +440,49 @@ class MainWindow:
         self._rebuild_map()
         self._schedule_redlight()
         self._update_run_button()
+
+    def _populate_grid(self):
+        shape = engine.shape_of(self.sel) if self.sel else None
+        headers, self._grid_roles = [], []
+        if not any(c["role"] in ("study", "slab", "studlab") for c in (shape["columns"] if shape else [])):
+            headers.append("Study"); self._grid_roles.append("studlab")
+        for c in (shape["columns"] if shape else []):
+            req = "" if c.get("required") else " (选填)"
+            headers.append("%s·%s%s" % (c.get("zh", c["role"]), c.get("en", c["role"]), req))
+            self._grid_roles.append(c["role"])
+        if not headers:                       # 纯参数方法:无形状,不用表格
+            headers, self._grid_roles = ["study"], ["studlab"]
+        self.sheet.headers(headers)
+        self.sheet.set_sheet_data([["" for _ in headers] for _ in range(8)], reset_col_positions=True)
+        try:
+            self.sheet.set_all_column_widths()
+        except Exception:
+            pass
+
+    def _use_grid(self):
+        try:
+            data = self.sheet.get_sheet_data()
+        except Exception:
+            return
+        rows = [r for r in data if any(str(x).strip() for x in r)]
+        if not rows:
+            self._append_log("! " + I18N.t("grid_empty"))
+            return
+        from .paths import run_root
+        d = run_root() / "_grid"
+        d.mkdir(parents=True, exist_ok=True)
+        p = d / "grid.csv"
+        import csv as _csv
+        with open(p, "w", encoding="utf-8", newline="") as f:
+            w = _csv.writer(f)
+            w.writerow(self._grid_roles)
+            for r in rows:
+                w.writerow([str(x).strip() for x in r][:len(self._grid_roles)])
+        self.user_file = str(p)
+        self._refresh_file_label()
+        self._schedule_redlight()
+        self._update_run_button()
+        self._append_log("✓ " + I18N.t("grid_used"))
 
     def _use_pasted(self):
         raw = self.paste_text.get("1.0", "end").strip()
@@ -472,14 +545,15 @@ class MainWindow:
         self._update_run_button()
 
     def _refresh_file_label(self):
-        if self.data_source.get() in ("mine", "paste") and self.user_file:
-            name = "pasted data" if self.data_source.get() == "paste" else os.path.basename(self.user_file)
+        if self.data_source.get() in ("mine", "paste", "grid") and self.user_file:
+            ds = self.data_source.get()
+            name = {"paste": "pasted data", "grid": "table data"}.get(ds, os.path.basename(self.user_file))
             self.lbl_file.config(text=I18N.t("loaded") + ": " + name)
         else:
             self.lbl_file.config(text="")
 
     def _cur_data_path(self):
-        if self.data_source.get() in ("mine", "paste"):
+        if self.data_source.get() in ("mine", "paste", "grid"):
             return self.user_file
         return engine.example_path(self.sel) if self.sel else None
 
@@ -588,7 +662,7 @@ class MainWindow:
     def _update_run_button(self):
         if not self.sel:
             return
-        user = self.data_source.get() in ("mine", "paste")
+        user = self.data_source.get() in ("mine", "paste", "grid")
         if user and not self.user_file:
             self.btn_run.config(text=I18N.t("pick_first"), state="disabled")
         else:
@@ -604,9 +678,10 @@ class MainWindow:
         params = self.form.values() if self.form else {}
         input_path = None
         col_map = {}
-        if self.data_source.get() in ("mine", "paste"):
+        ds = self.data_source.get()
+        if ds in ("mine", "paste", "grid"):
             input_path = self.user_file
-            if self._map_vars:                       # 有列映射面板:校验必填列已对应
+            if ds != "grid" and self._map_vars:      # 上传/粘贴:校验必填列已对应(表格列即角色,免映射)
                 miss = self._missing_required()
                 if miss:
                     self._append_log("! " + I18N.t("map_missing") + ": " + "、".join(miss))

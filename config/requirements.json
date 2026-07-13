@@ -5,7 +5,8 @@
   "python_packages": [
     "psutil",
     "Pillow",
-    "python-docx"
+    "python-docx",
+    "tksheet"
   ],
   "python_import_names": {
     "Pillow": "PIL",
