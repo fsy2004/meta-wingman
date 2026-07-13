@@ -109,8 +109,10 @@ class MainWindow:
         self.rb_ex.grid(row=0, column=0, sticky="w", padx=(0, 16))
         self.rb_mine = ttk.Radiobutton(ds, variable=self.data_source, value="mine", command=self._on_source)
         self.rb_mine.grid(row=0, column=1, sticky="w")
+        self.rb_paste = ttk.Radiobutton(ds, variable=self.data_source, value="paste", command=self._on_source)
+        self.rb_paste.grid(row=0, column=2, sticky="w", padx=(0, 16))
         self.btn_file = ttk.Button(ds, style="Toolbutton", command=self._choose_file)
-        self.btn_file.grid(row=0, column=2, sticky="w", padx=16)
+        self.btn_file.grid(row=0, column=3, sticky="w", padx=16)
         self.lbl_file = ttk.Label(ds, style="Muted.TLabel")
         self.lbl_file.grid(row=1, column=0, columnspan=3, sticky="w", pady=(4, 0))
         self.lbl_cols = ttk.Label(ds, style="Muted.TLabel", wraplength=680, justify="left")
@@ -118,7 +120,17 @@ class MainWindow:
         self.lbl_mem = ttk.Label(ds, style="Muted.TLabel")
         self.lbl_mem.grid(row=3, column=0, columnspan=3, sticky="w", pady=(4, 0))
 
-        # 列映射面板(上传自有数据 + 该方法有列形状时显示)
+        # 粘贴/录入面板(选"粘贴数据"时显示)
+        self.paste_frame = ttk.Frame(top)
+        self.lbl_paste_hint = ttk.Label(self.paste_frame, style="Muted.TLabel", wraplength=680, justify="left")
+        self.lbl_paste_hint.pack(anchor="w", pady=(4, 2))
+        self.paste_text = tk.Text(self.paste_frame, height=5, wrap="none", font=(theme.MONO, 9),
+                                  background=theme.CANVAS, foreground=theme.TEXT, relief="solid", borderwidth=1)
+        self.paste_text.pack(fill="x")
+        self.btn_paste_use = ttk.Button(self.paste_frame, style="Toolbutton", command=self._use_pasted)
+        self.btn_paste_use.pack(anchor="w", pady=(4, 0))
+
+        # 列映射面板(上传/粘贴 + 该方法有列形状时显示)
         self.map_frame = ttk.Frame(top)
         self.map_frame.pack(fill="x", pady=(2, 0))
 
@@ -159,7 +171,10 @@ class MainWindow:
         self.btn_lang.config(text=I18N.t("lang_button"))
         self.rb_ex.config(text=I18N.both("use_example"))
         self.rb_mine.config(text=I18N.both("use_mine"))
+        self.rb_paste.config(text=I18N.both("use_paste"))
         self.btn_file.config(text=I18N.t("choose_file"))
+        self.btn_paste_use.config(text=I18N.t("paste_use"))
+        self.lbl_paste_hint.config(text=I18N.t("paste_hint"))
         self.btn_cancel.config(text=I18N.t("cancel"))
         self.hdr_data.config(text=I18N.t("data"))
         self.hdr_params.config(text=I18N.t("parameters"))
@@ -207,6 +222,7 @@ class MainWindow:
         self.sel = engine.load_manifest(mid)
         self.data_source.set("example")
         self.user_file = None
+        self.paste_frame.pack_forget()
         self._render_header()
         self._swap_form(mid)
         self._set_log("")
@@ -237,9 +253,60 @@ class MainWindow:
         return self._forms.get(self.sel["id"]) if self.sel else None
 
     def _on_source(self):
-        if self.data_source.get() == "mine" and not self.user_file:
+        src = self.data_source.get()
+        if src == "paste":
+            self.paste_frame.pack(fill="x", pady=(2, 0), before=self.map_frame)
+        else:
+            self.paste_frame.pack_forget()
+        if src == "mine" and not self.user_file:
             self._choose_file()
             return
+        self._refresh_file_label()
+        self._rebuild_map()
+        self._schedule_redlight()
+        self._update_run_button()
+
+    def _use_pasted(self):
+        raw = self.paste_text.get("1.0", "end").strip()
+        if not raw:
+            self._append_log("! " + I18N.t("paste_empty"))
+            return
+        rows = []
+        for line in raw.splitlines():
+            if not line.strip():
+                continue
+            cells = line.split("\t") if "\t" in line else line.split(",")
+            rows.append([c.strip() for c in cells])
+        if not rows:
+            return
+        # 首行:全非数字 → 当表头;否则按形状角色名或 c1,c2… 生成表头
+        def is_num(x):
+            try:
+                float(x); return True
+            except ValueError:
+                return False
+        first_numeric = any(is_num(c) for c in rows[0])
+        shape = engine.shape_of(self.sel) if self.sel else None
+        if first_numeric:
+            n = len(rows[0])
+            if shape and len(shape["columns"]) >= n:
+                header = [shape["columns"][i]["role"] for i in range(n)]
+            else:
+                header = [f"c{i+1}" for i in range(n)]
+            data = rows
+        else:
+            header = rows[0]
+            data = rows[1:]
+        from .paths import run_root
+        dest = run_root() / "_pasted"
+        dest.mkdir(parents=True, exist_ok=True)
+        path = dest / "pasted.csv"
+        with open(path, "w", encoding="utf-8-sig", newline="") as f:
+            wr = csv.writer(f)
+            wr.writerow(header)
+            for r in data:
+                wr.writerow(r)
+        self.user_file = str(path)
         self._refresh_file_label()
         self._rebuild_map()
         self._schedule_redlight()
@@ -260,13 +327,14 @@ class MainWindow:
         self._update_run_button()
 
     def _refresh_file_label(self):
-        if self.data_source.get() == "mine" and self.user_file:
-            self.lbl_file.config(text=I18N.t("loaded") + ": " + os.path.basename(self.user_file))
+        if self.data_source.get() in ("mine", "paste") and self.user_file:
+            name = "pasted data" if self.data_source.get() == "paste" else os.path.basename(self.user_file)
+            self.lbl_file.config(text=I18N.t("loaded") + ": " + name)
         else:
             self.lbl_file.config(text="")
 
     def _cur_data_path(self):
-        if self.data_source.get() == "mine":
+        if self.data_source.get() in ("mine", "paste"):
             return self.user_file
         return engine.example_path(self.sel) if self.sel else None
 
@@ -300,7 +368,7 @@ class MainWindow:
             w.destroy()
         self._map_vars = {}
         shape = engine.shape_of(self.sel) if self.sel else None
-        if not shape or self.data_source.get() != "mine" or not self.user_file:
+        if not shape or self.data_source.get() not in ("mine", "paste") or not self.user_file:
             return
         self._headers = self._read_headers(self.user_file)
         if not self._headers:
@@ -375,11 +443,11 @@ class MainWindow:
     def _update_run_button(self):
         if not self.sel:
             return
-        mine = self.data_source.get() == "mine"
-        if mine and not self.user_file:
+        user = self.data_source.get() in ("mine", "paste")
+        if user and not self.user_file:
             self.btn_run.config(text=I18N.t("pick_first"), state="disabled")
         else:
-            self.btn_run.config(text=I18N.t("run_mine") if mine else I18N.t("run_example"), state="normal")
+            self.btn_run.config(text=I18N.t("run_mine") if user else I18N.t("run_example"), state="normal")
 
     # ---------- 运行 ----------
     def _run(self):
@@ -391,7 +459,7 @@ class MainWindow:
         params = self.form.values() if self.form else {}
         input_path = None
         col_map = {}
-        if self.data_source.get() == "mine":
+        if self.data_source.get() in ("mine", "paste"):
             input_path = self.user_file
             if self._map_vars:                       # 有列映射面板:校验必填列已对应
                 miss = self._missing_required()
