@@ -93,5 +93,6 @@
   },
   "group": "bias",
   "item_order": 30,
-  "analysis": "begg"
+  "analysis": "begg",
+  "shape": "binary2x2"
 }

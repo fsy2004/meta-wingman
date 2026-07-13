@@ -93,5 +93,6 @@
   },
   "group": "bias",
   "item_order": 20,
-  "analysis": "egger"
+  "analysis": "egger",
+  "shape": "binary2x2"
 }

@@ -93,5 +93,6 @@
   },
   "group": "bias",
   "item_order": 50,
-  "analysis": "petpeese"
+  "analysis": "petpeese",
+  "shape": "binary2x2"
 }

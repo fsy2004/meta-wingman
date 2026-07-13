@@ -90,5 +90,6 @@
     "note": "meta 汇总数据内存极小, 恒绿"
   },
   "group": "heterogeneity",
-  "item_order": 40
+  "item_order": 40,
+  "shape": "binary2x2"
 }

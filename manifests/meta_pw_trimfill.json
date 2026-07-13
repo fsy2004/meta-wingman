@@ -93,5 +93,6 @@
   },
   "group": "bias",
   "item_order": 40,
-  "analysis": "trimfill"
+  "analysis": "trimfill",
+  "shape": "binary2x2"
 }

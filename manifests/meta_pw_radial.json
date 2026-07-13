@@ -93,5 +93,6 @@
   },
   "group": "bias",
   "item_order": 70,
-  "analysis": "radial"
+  "analysis": "radial",
+  "shape": "binary2x2"
 }

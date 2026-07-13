@@ -94,5 +94,6 @@
     "note": "GOSH 枚举 2^k-1 子集, k≤20 时耗时可控, 内存仍小"
   },
   "group": "robustness",
-  "item_order": 40
+  "item_order": 40,
+  "shape": "binary2x2"
 }

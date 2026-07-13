@@ -2,6 +2,7 @@
 """主窗口:左=分组方法树,右=方法详情。RevMan 式紧凑、克制,无营销文案。
 性能:红绿灯去主线程(缓存+防抖+后台线程);参数表单按方法缓存不重建。"""
 from __future__ import annotations
+import csv
 import os
 import queue
 import threading
@@ -28,6 +29,8 @@ class MainWindow:
         self._rl_job = None
         self._rl_tok = 0
         self._rl_q = queue.Queue()
+        self._map_vars = {}       # role -> StringVar(用户列名映射)
+        self._headers = []
 
         root.geometry("1120x720")
         root.minsize(900, 600)
@@ -114,6 +117,10 @@ class MainWindow:
         self.lbl_cols.grid(row=2, column=0, columnspan=3, sticky="w", pady=(2, 0))
         self.lbl_mem = ttk.Label(ds, style="Muted.TLabel")
         self.lbl_mem.grid(row=3, column=0, columnspan=3, sticky="w", pady=(4, 0))
+
+        # 列映射面板(上传自有数据 + 该方法有列形状时显示)
+        self.map_frame = ttk.Frame(top)
+        self.map_frame.pack(fill="x", pady=(2, 0))
 
         # 参数段
         self.hdr_params = ttk.Label(top, style="Section.TLabel")
@@ -205,6 +212,7 @@ class MainWindow:
         self._set_log("")
         self.results.clear()
         self._refresh_file_label()
+        self._rebuild_map()
         self._schedule_redlight()
         self._update_run_button()
 
@@ -233,6 +241,7 @@ class MainWindow:
             self._choose_file()
             return
         self._refresh_file_label()
+        self._rebuild_map()
         self._schedule_redlight()
         self._update_run_button()
 
@@ -246,6 +255,7 @@ class MainWindow:
             if not self.user_file:
                 self.data_source.set("example")
         self._refresh_file_label()
+        self._rebuild_map()
         self._schedule_redlight()
         self._update_run_button()
 
@@ -259,6 +269,68 @@ class MainWindow:
         if self.data_source.get() == "mine":
             return self.user_file
         return engine.example_path(self.sel) if self.sel else None
+
+    # ---------- 列映射 ----------
+    def _read_headers(self, path):
+        for enc in ("utf-8-sig", "gb18030", "latin-1"):
+            try:
+                with open(path, "r", encoding=enc, newline="") as f:
+                    row = next(csv.reader(f), [])
+                return [c.strip() for c in row if c.strip()]
+            except UnicodeDecodeError:
+                continue
+            except Exception:
+                return []
+        return []
+
+    @staticmethod
+    def _guess(aliases, headers):
+        low = {h.lower().strip(): h for h in headers}
+        for a in aliases:                         # 精确别名(不分大小写)
+            if a.lower() in low:
+                return low[a.lower()]
+        for a in aliases:                         # 子串包含
+            for h in headers:
+                if a.lower() in h.lower():
+                    return h
+        return ""
+
+    def _rebuild_map(self):
+        for w in self.map_frame.winfo_children():
+            w.destroy()
+        self._map_vars = {}
+        shape = engine.shape_of(self.sel) if self.sel else None
+        if not shape or self.data_source.get() != "mine" or not self.user_file:
+            return
+        self._headers = self._read_headers(self.user_file)
+        if not self._headers:
+            return
+        ttk.Label(self.map_frame, text=I18N.both("map_columns"), style="Section.TLabel").grid(
+            row=0, column=0, columnspan=2, sticky="w", pady=(8, 3))
+        opts = ["(无)"] + self._headers
+        for i, col in enumerate(shape["columns"], start=1):
+            req = "" if col.get("required") else " " + I18N.t("optional")
+            ttk.Label(self.map_frame, text=f'{col.get("zh")} · {col.get("en")}{req}',
+                      style="Muted.TLabel").grid(row=i, column=0, sticky="w", padx=(0, 10), pady=1)
+            var = tk.StringVar(value=self._guess(col.get("aliases", [col["role"]]), self._headers) or "(无)")
+            ttk.Combobox(self.map_frame, textvariable=var, values=opts, state="readonly", width=22).grid(
+                row=i, column=1, sticky="w", pady=1)
+            self._map_vars[col["role"]] = (var, col)
+
+    def _collect_map(self):
+        cm = {}
+        for role, (var, col) in self._map_vars.items():
+            v = var.get()
+            if v and v != "(无)":
+                cm[role] = v
+        return cm
+
+    def _missing_required(self):
+        miss = []
+        for role, (var, col) in self._map_vars.items():
+            if col.get("required") and (not var.get() or var.get() == "(无)"):
+                miss.append(col.get("zh") or role)
+        return miss
 
     # ---------- 红绿灯(防抖 + 后台线程) ----------
     def _schedule_redlight(self):
@@ -317,8 +389,18 @@ class MainWindow:
             self._locate_r()
             return
         params = self.form.values() if self.form else {}
-        input_path = self.user_file if self.data_source.get() == "mine" else None
-        self.run = engine.Run(self.sel, input_path=input_path, params=params)
+        input_path = None
+        col_map = {}
+        if self.data_source.get() == "mine":
+            input_path = self.user_file
+            if self._map_vars:                       # 有列映射面板:校验必填列已对应
+                miss = self._missing_required()
+                if miss:
+                    self._append_log("! " + I18N.t("map_missing") + ": " + "、".join(miss))
+                    self.nb.select(0)
+                    return
+                col_map = self._collect_map()
+        self.run = engine.Run(self.sel, input_path=input_path, params=params, col_map=col_map)
         self._set_log("")
         self.results.clear()
         self.nb.select(0)

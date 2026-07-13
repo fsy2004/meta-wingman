@@ -78,5 +78,6 @@
   },
   "group": "synthesis",
   "item_order": 80,
-  "analysis": "hr"
+  "analysis": "hr",
+  "shape": "generic"
 }

@@ -82,5 +82,6 @@
   },
   "group": "bias",
   "item_order": 60,
-  "analysis": "labbe"
+  "analysis": "labbe",
+  "shape": "binary2x2"
 }

@@ -93,5 +93,6 @@
   },
   "group": "bias",
   "item_order": 10,
-  "analysis": "funnel"
+  "analysis": "funnel",
+  "shape": "binary2x2"
 }

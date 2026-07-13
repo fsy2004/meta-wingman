@@ -80,5 +80,6 @@
   },
   "group": "certainty",
   "item_order": 10,
-  "analysis": "evalue"
+  "analysis": "evalue",
+  "shape": "evalue"
 }

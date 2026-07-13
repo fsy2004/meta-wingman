@@ -83,5 +83,6 @@
   },
   "group": "synthesis",
   "item_order": 40,
-  "analysis": "mh"
+  "analysis": "mh",
+  "shape": "binary2x2"
 }

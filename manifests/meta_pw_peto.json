@@ -72,5 +72,6 @@
   },
   "group": "synthesis",
   "item_order": 50,
-  "analysis": "peto"
+  "analysis": "peto",
+  "shape": "binary2x2"
 }

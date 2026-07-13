@@ -67,5 +67,6 @@
   },
   "group": "synthesis",
   "item_order": 60,
-  "analysis": "glmm"
+  "analysis": "glmm",
+  "shape": "binary2x2"
 }

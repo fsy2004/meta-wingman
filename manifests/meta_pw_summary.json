@@ -93,5 +93,6 @@
   },
   "group": "synthesis",
   "item_order": 30,
-  "analysis": "summary"
+  "analysis": "summary",
+  "shape": "binary2x2"
 }

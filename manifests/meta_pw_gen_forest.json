@@ -93,5 +93,6 @@
   },
   "group": "synthesis",
   "item_order": 20,
-  "analysis": "gen_forest"
+  "analysis": "gen_forest",
+  "shape": "generic"
 }

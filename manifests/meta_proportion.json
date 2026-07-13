@@ -69,5 +69,6 @@
   },
   "group": "synthesis",
   "item_order": 90,
-  "analysis": "logit"
+  "analysis": "logit",
+  "shape": "proportion"
 }

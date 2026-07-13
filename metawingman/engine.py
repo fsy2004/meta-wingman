@@ -11,7 +11,7 @@ import time
 import uuid
 from pathlib import Path
 
-from .paths import ROOT, MANIFESTS, TOOLKIT, run_root
+from .paths import ROOT, MANIFESTS, TOOLKIT, CONFIG, run_root
 from .rlocate import find_rscript
 
 CREATE_NO_WINDOW = 0x08000000 if os.name == "nt" else 0   # 不弹子进程黑窗
@@ -70,7 +70,22 @@ def example_path(m: dict):
     return None
 
 
-def build_argv(m, rscript, input_path, params, outdir):
+def _load_shapes():
+    try:
+        return json.loads((CONFIG / "column_shapes.json").read_text(encoding="utf-8")).get("shapes", {})
+    except Exception:
+        return {}
+
+
+_SHAPES = _load_shapes()
+
+
+def shape_of(m: dict):
+    """返回该方法的列规格 {label_zh,label_en,columns:[...]} 或 None(无形状=回退模板)。"""
+    return _SHAPES.get(m.get("shape")) if m.get("shape") else None
+
+
+def build_argv(m, rscript, input_path, params, outdir, col_map=None):
     argv = [rscript, str(ROOT / m["entry"])]
     for spec in m.get("inputs", []):
         path = input_path if spec.get("primary") else None
@@ -81,6 +96,9 @@ def build_argv(m, rscript, input_path, params, outdir):
     argv += ["--outdir", str(outdir)]
     if m.get("analysis"):                       # 叶子固定标志:一个家族适配器靠 --analysis 选具体输出
         argv += ["--analysis", str(m["analysis"])]
+    for role, col in (col_map or {}).items():   # 列映射:用户列名 → --<role>(col_of/getarg 覆盖默认列名)
+        if col:
+            argv += ["--" + role, str(col)]
     flags = m.get("param_flags", {})
     for k, v in (params or {}).items():
         if k in flags and v is not None and str(v) != "":
@@ -92,10 +110,12 @@ class Run:
     """一次方法运行。start() 起后台线程;UI 反复 poll() 取 (kind, payload):
     kind ∈ {'log','error','done'};done 的 payload 是 returncode。结束后读 .outputs / .returncode。"""
 
-    def __init__(self, m: dict, input_path: str | None = None, params: dict | None = None, timeout: int = 900):
+    def __init__(self, m: dict, input_path: str | None = None, params: dict | None = None,
+                 timeout: int = 900, col_map: dict | None = None):
         self.m = m
         self.input_path = input_path
         self.params = params or {}
+        self.col_map = col_map or {}
         self.timeout = timeout
         self.q: queue.Queue = queue.Queue()
         self.outdir = run_root() / f'{m["id"]}_{time.strftime("%Y%m%d_%H%M%S")}_{uuid.uuid4().hex[:6]}'
@@ -128,7 +148,7 @@ class Run:
             return
         try:
             self.outdir.mkdir(parents=True, exist_ok=True)
-            argv = build_argv(self.m, rscript, self.input_path, self.params, self.outdir)
+            argv = build_argv(self.m, rscript, self.input_path, self.params, self.outdir, self.col_map)
             env = os.environ.copy()
             env["META_TOOLKIT"] = str(TOOLKIT)
             env["PATH"] = str(Path(rscript).parent) + os.pathsep + env.get("PATH", "")

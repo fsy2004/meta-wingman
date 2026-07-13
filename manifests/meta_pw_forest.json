@@ -93,5 +93,6 @@
   },
   "group": "synthesis",
   "item_order": 10,
-  "analysis": "forest"
+  "analysis": "forest",
+  "shape": "binary2x2"
 }

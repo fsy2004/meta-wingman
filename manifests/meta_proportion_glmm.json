@@ -69,5 +69,6 @@
   },
   "group": "synthesis",
   "item_order": 100,
-  "analysis": "glmm"
+  "analysis": "glmm",
+  "shape": "proportion"
 }

@@ -69,5 +69,6 @@
   },
   "group": "synthesis",
   "item_order": 110,
-  "analysis": "ft"
+  "analysis": "ft",
+  "shape": "proportion"
 }
