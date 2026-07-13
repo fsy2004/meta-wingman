@@ -35,10 +35,115 @@ class MainWindow:
 
         root.geometry("1120x720")
         root.minsize(900, 600)
+        self._build_menu()
         self._build_top()
         self._build_body()
         I18N.bind(self._on_lang)
         self._select_first()
+
+    def _build_menu(self):
+        self._menubar = tk.Menu(self.root)
+        self._filemenu = tk.Menu(self._menubar, tearoff=0)
+        self._menubar.add_cascade(menu=self._filemenu)   # 文案在 _on_lang 里贴
+        self.root.config(menu=self._menubar)
+
+    def _relabel_menu(self):
+        try:
+            self._menubar.entryconfig(1, label=I18N.t("menu_file"))
+            self._filemenu.delete(0, "end")
+            self._filemenu.add_command(label=I18N.t("proj_open"), command=self._open_project)
+            self._filemenu.add_command(label=I18N.t("proj_save"), command=self._save_project)
+            self._filemenu.add_separator()
+            self._filemenu.add_command(label=I18N.t("menu_exit"), command=self.root.destroy)
+        except Exception:
+            pass
+
+    # ---------- 项目 .mwproj ----------
+    def get_project_state(self):
+        if not self.sel:
+            return None
+        form = self._cur_form
+        st = {
+            "method_id": self.sel["id"],
+            "data_source": self.data_source.get(),
+            "params": (form.values() if form else {}),
+            "mapping": self._collect_map(),
+        }
+        if self.data_source.get() in ("mine", "paste") and self.user_file and os.path.exists(self.user_file):
+            st["data_name"] = os.path.basename(self.user_file)
+            for enc in ("utf-8-sig", "gb18030", "latin-1"):
+                try:
+                    st["data_csv"] = open(self.user_file, encoding=enc).read()
+                    break
+                except Exception:
+                    continue
+        return st
+
+    def apply_project_state(self, st):
+        mid = st.get("method_id")
+        if not mid:
+            return
+        self.pick(mid)                                   # 载方法 + 建表单(会重置为示例)
+        ds = st.get("data_source", "example")
+        if ds in ("mine", "paste") and st.get("data_csv"):
+            from .paths import run_root
+            d = run_root() / "_project"
+            d.mkdir(parents=True, exist_ok=True)
+            f = d / (st.get("data_name") or "data.csv")
+            try:
+                f.write_text(st["data_csv"], encoding="utf-8")
+                self.user_file = str(f)
+                self.data_source.set(ds)
+                self._on_source()                        # 触发体检 + 重建映射
+            except Exception:
+                pass
+        for r, col in (st.get("mapping") or {}).items():  # 映射在 _rebuild_map 之后设
+            if r in self._map_vars:
+                self._map_vars[r][0].set(col)
+        form = self._cur_form
+        if form:
+            for k, v in (st.get("params") or {}).items():
+                if k in form.vars:
+                    var, typ = form.vars[k]
+                    if typ == "boolean":
+                        var.set(str(v).lower() in ("true", "1", "yes", "t"))
+                    else:
+                        var.set(v)
+        self._refresh_file_label()
+        self._update_run_button()
+
+    def _save_project(self):
+        from tkinter import filedialog, messagebox
+        st = self.get_project_state()
+        if not st:
+            messagebox.showinfo("Meta Wingman", I18N.t("proj_none"))
+            return
+        dst = filedialog.asksaveasfilename(defaultextension=".mwproj",
+                                           initialfile=(self.sel["id"] + ".mwproj"),
+                                           filetypes=[("Meta Wingman project", "*.mwproj")])
+        if not dst:
+            return
+        try:
+            from . import project
+            project.save(st, dst)
+            messagebox.showinfo("Meta Wingman", I18N.t("proj_saved", d=dst))
+        except Exception as e:
+            messagebox.showerror("Meta Wingman", str(e))
+
+    def _open_project(self):
+        from tkinter import filedialog, messagebox
+        src = filedialog.askopenfilename(filetypes=[("Meta Wingman project", "*.mwproj"), ("All", "*.*")])
+        if not src:
+            return
+        try:
+            from . import project
+            st = project.load(src)
+            note = project.version_note(st.get("version", ""))
+            self.apply_project_state(st)
+            if note:
+                messagebox.showwarning("Meta Wingman", note)
+        except Exception as e:
+            messagebox.showerror("Meta Wingman", str(e))
 
     def _init_sash(self):
         try:
@@ -205,6 +310,7 @@ class MainWindow:
 
     # ---------- 语言刷新 ----------
     def _on_lang(self):
+        self._relabel_menu()
         self.btn_lang.config(text=I18N.t("lang_button"))
         self.rb_ex.config(text=I18N.both("use_example"))
         self.rb_mine.config(text=I18N.both("use_mine"))
