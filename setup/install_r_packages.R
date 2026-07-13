@@ -4,7 +4,8 @@ args <- commandArgs(trailingOnly = TRUE)
 repo <- if (length(args) >= 1 && nzchar(args[1])) args[1] else "https://mirrors.tuna.tsinghua.edu.cn/CRAN"
 need <- if (length(args) >= 2) args[-1] else
   c("metafor", "meta", "netmeta", "mada", "bayesmeta", "robvis",
-    "metasens", "estmeansd", "pdftools", "gridExtra", "ggplot2")
+    "metasens", "estmeansd", "pdftools", "gridExtra", "ggplot2",
+    "dosresmeta", "rms", "RTSA", "EValue", "robumeta", "clubSandwich")
 options(repos = c(CRAN = repo))
 cat("  R 包安装源:", repo, "\n")
 

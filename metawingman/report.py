@@ -26,12 +26,14 @@ def _citations(packages):
     if not rs or not packages:
         return []
     pk = ",".join('"%s"' % p for p in packages)
-    code = ('for (p in c(%s)) if (requireNamespace(p, quietly=TRUE)) '
-            'cat("- ", format(citation(p)[1], style="text"), "\\n", sep="")') % pk
+    # ★把每条引用折成一行(style="text" 默认按 80 列换行,否则续行会被丢),用 @@ 作分隔哨兵。
+    code = ('for (p in c(%s)) if (requireNamespace(p, quietly=TRUE)) {'
+            ' s <- paste(format(citation(p)[1], style="text"), collapse=" ");'
+            ' cat("@@", gsub("\\\\s+", " ", s), "\\n", sep="") }') % pk
     try:
         out = subprocess.run([rs, "-e", code], capture_output=True, encoding="utf-8",
                              errors="replace", timeout=60, creationflags=CREATE_NO_WINDOW)
-        return [l.strip() for l in (out.stdout or "").splitlines() if l.strip().startswith("-")]
+        return [seg.strip() for seg in (out.stdout or "").split("@@") if seg.strip()]
     except Exception:
         return []
 

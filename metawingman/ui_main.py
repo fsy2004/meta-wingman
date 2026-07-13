@@ -47,6 +47,15 @@ class MainWindow:
         self._build_body()
         I18N.bind(self._on_lang)
         self._select_first()
+        self.root.protocol("WM_DELETE_WINDOW", self._on_close)   # 关窗前杀掉在跑的 R,避免孤儿进程
+
+    def _on_close(self):
+        try:
+            if self.run and not self.run.done:
+                self.run.cancel()
+        except Exception:
+            pass
+        self.root.destroy()
 
     def _build_menu(self):
         self._menubar = tk.Menu(self.root)
@@ -96,7 +105,10 @@ class MainWindow:
             from .paths import run_root
             d = run_root() / "_project"
             d.mkdir(parents=True, exist_ok=True)
-            f = d / (st.get("data_name") or "data.csv")
+            safe = os.path.basename(st.get("data_name") or "data.csv")   # ★防路径穿越:恶意 .mwproj 可能给 ..\ 或绝对路径
+            if not safe or safe in (".", "..") or "/" in safe or "\\" in safe:
+                safe = "data.csv"
+            f = d / safe
             try:
                 f.write_text(st["data_csv"], encoding="utf-8")
                 self.user_file = str(f)
@@ -390,6 +402,9 @@ class MainWindow:
 
     # ---------- 选方法 ----------
     def pick(self, mid):
+        if self.run and not self.run.done:   # 切方法前取消在跑的旧 run,避免重叠/结果串到别的方法
+            self.run.cancel()
+            self.run = None
         self.sel = engine.load_manifest(mid)
         self.data_source.set("example")
         self.user_file = None
@@ -639,14 +654,16 @@ class MainWindow:
     def _poll_redlight(self, tok):
         if tok != self._rl_tok:
             return                       # 已有更新请求,弃本轮
-        latest = None
+        match = None
         try:
-            while True:
-                latest = self._rl_q.get_nowait()
+            while True:                  # 扫描队列找令牌匹配项(线程入队顺序不定,不能只留最后一个)
+                item = self._rl_q.get_nowait()
+                if item[0] == self._rl_tok:
+                    match = item
         except queue.Empty:
             pass
-        if latest and latest[0] == self._rl_tok:
-            self._apply_redlight(latest[1])
+        if match is not None:
+            self._apply_redlight(match[1])
         else:
             self.root.after(50, lambda: self._poll_redlight(tok))
 
@@ -690,14 +707,15 @@ class MainWindow:
                 col_map = self._collect_map()
         if not self._data_ok(col_map):               # 数值级校验:有问题弹窗,用户可选仍继续
             return
-        self.run = engine.Run(self.sel, input_path=input_path, params=params, col_map=col_map)
+        r = engine.Run(self.sel, input_path=input_path, params=params, col_map=col_map)
+        self.run = r
         self._set_log("")
         self.results.clear()
         self.nb.select(0)
         self.btn_run.config(state="disabled")
         self.btn_cancel.pack(side="left", padx=8)
-        self.run.start()
-        self.root.after(120, self._poll)
+        r.start()
+        self.root.after(120, lambda: self._poll(r))
 
     def _data_ok(self, col_map):
         """运行前数值级校验:有问题则弹窗列出,用户可选「仍继续」(覆盖)或返回修数据。"""
@@ -721,10 +739,10 @@ class MainWindow:
             self.nb.select(0)
         return go
 
-    def _poll(self):
-        if not self.run:
+    def _poll(self, run):
+        if run is not self.run:          # 已切方法/重跑 → 这是旧 run 的轮询,停(避免串结果、避免僵尸定时器)
             return
-        for kind, payload in self.run.poll():
+        for kind, payload in run.poll():
             if kind == "log":
                 self._append_log(payload)
             elif kind == "error":
@@ -732,7 +750,7 @@ class MainWindow:
             elif kind == "done":
                 self._on_done(payload)
                 return
-        self.root.after(120, self._poll)
+        self.root.after(120, lambda: self._poll(run))
 
     def _on_done(self, rc):
         r = self.run

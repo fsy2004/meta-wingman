@@ -20,7 +20,13 @@ mw_read_csv <- function(path) {
     df <- tryCatch(
       withCallingHandlers(
         read.csv(path, check.names = FALSE, stringsAsFactors = FALSE, fileEncoding = e),
-        warning = function(w) { ok <<- FALSE; invokeRestart("muffleWarning") }),
+        # 只把"编码类"warning 当作该编码不适;"incomplete final line"(末行无换行)等无关 warning 不算失败,
+        # 否则合法 UTF-8(缺末行换行)会被丢弃并落到 latin1 → 中文乱码。
+        warning = function(w) {
+          if (grepl("invalid|multibyte|byte|encoding|cannot", conditionMessage(w), ignore.case = TRUE))
+            ok <<- FALSE
+          invokeRestart("muffleWarning")
+        }),
       error = function(err) { ok <<- FALSE; NULL })
     if (ok && !is.null(df) && nrow(df) >= 1) df else NULL
   }

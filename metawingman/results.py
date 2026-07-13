@@ -150,12 +150,21 @@ class ResultsView(ttk.Frame):
             filetypes=[("Word", "*.docx")])
         if not dst:
             return
-        try:
-            from . import report
-            report.build_report(self._manifest, self._params, self._outputs, self.outdir, dst)
-            messagebox.showinfo("Meta Wingman", I18N.t("report_done", d=dst))
-        except Exception as e:
-            messagebox.showerror("Meta Wingman", I18N.t("report_fail") + "\n" + str(e))
+        # 后台线程生成(build_report 会跑 R 子进程取版本/引用,别阻塞 Tk 主线程冻界面)
+        import threading
+        m, p, o, od = self._manifest, self._params, list(self._outputs), self.outdir
+        self.btn_report.config(state="disabled")
+
+        def work():
+            try:
+                from . import report
+                report.build_report(m, p, o, od, dst)
+                self.after(0, lambda: messagebox.showinfo("Meta Wingman", I18N.t("report_done", d=dst)))
+            except Exception as e:
+                self.after(0, lambda: messagebox.showerror("Meta Wingman", I18N.t("report_fail") + "\n" + str(e)))
+            finally:
+                self.after(0, self._sync)
+        threading.Thread(target=work, daemon=True).start()
 
     def _open(self):
         if self._on_open_folder:

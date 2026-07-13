@@ -23,6 +23,12 @@
     "estmeansd",
     "pdftools",
     "gridExtra",
-    "ggplot2"
+    "ggplot2",
+    "dosresmeta",
+    "rms",
+    "RTSA",
+    "EValue",
+    "robumeta",
+    "clubSandwich"
   ]
 }

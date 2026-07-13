@@ -36,7 +36,8 @@ PY_PKGS = _REQ.get("python_packages") or ["psutil", "sv-ttk", "Pillow"]
 # pip 发行名 → import 名(不同才需列;如 sv-ttk→sv_ttk、Pillow→PIL)。修:原先按发行名 find_spec 永远报缺。
 PY_IMPORTS = _REQ.get("python_import_names") or {}
 R_PKGS = _REQ.get("r_packages") or ["metafor", "meta", "netmeta", "mada", "bayesmeta", "robvis",
-                                    "metasens", "estmeansd", "pdftools", "gridExtra", "ggplot2"]
+                                    "metasens", "estmeansd", "pdftools", "gridExtra", "ggplot2",
+                                    "dosresmeta", "rms", "RTSA", "EValue", "robumeta", "clubSandwich"]
 PY_MIN = _minver(_REQ.get("python_min", "3.9"), (3, 9))
 R_MIN = _minver(_REQ.get("r_min", "4.0"), (4, 0))
 
