@@ -1,7 +1,7 @@
 {
-  "id": "meta_pairwise",
-  "title": "配对 Meta 分析(森林图 + 漏斗图)",
-  "title_en": "Pairwise meta-analysis",
+  "id": "meta_pw_begg",
+  "title": "Begg 秩相关检验",
+  "title_en": "Begg rank test",
   "category": "meta",
   "family": "Meta 分析",
   "language": "R",
@@ -11,7 +11,7 @@
   "tier": "T1",
   "entry": "adapters/meta/run_pairwise.R",
   "workdir": "adapters/meta",
-  "description": "随机效应配对 meta 分析(REML + Knapp-Hartung + 95% 预测区间,顶刊/Cochrane 默认),输出发表级森林图、等高线漏斗图、发表偏倚检验(Egger/Begg/trim-and-fill/PET-PEESE)与合并汇总表。基于 metafor,由 meta-analysis-toolkit 驱动。",
+  "description": "Begg & Mazumdar 秩相关检验(Kendall's τ)评估漏斗图不对称。基于 metafor::ranktest。",
   "inputs": [
     {
       "name": "input",
@@ -36,7 +36,6 @@
           "OR",
           "RR",
           "RD",
-          "PETO",
           "SMD",
           "MD",
           "ROM",
@@ -92,6 +91,7 @@
     "calibrated": true,
     "note": "Meta 分析为研究级汇总数据(通常几十行),内存开销极小,基本恒为绿灯。"
   },
-  "group": "synthesis",
-  "item_order": 10
+  "group": "bias",
+  "item_order": 30,
+  "analysis": "begg"
 }

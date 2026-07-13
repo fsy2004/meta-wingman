@@ -56,5 +56,6 @@
     "note": "逐行估算,内存极小,恒绿。"
   },
   "group": "data",
-  "item_order": 10
+  "item_order": 10,
+  "analysis": "msd"
 }

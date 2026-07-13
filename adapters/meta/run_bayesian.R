@@ -1,11 +1,13 @@
 ## =====================================================================
-## run_bayesian.R —— launcher 适配层:把 meta-analysis-toolkit 的贝叶斯
-## 随机效应 meta(R/22_bayesian_meta.R 的 bma_run)暴露成 --input/--outdir
-## 的 CLI 方法。工具包本身不改;此脚本 source 它、读用户 CSV(study,yi,sei)、
-## 调 bma_run,出图(森林 + 后验密度 PDF→PNG 供界面显示)+ 汇总表。
+## run_bayesian.R —— launcher 适配层(贝叶斯家族):把 meta-analysis-toolkit
+## 的贝叶斯随机效应 meta(R/22_bayesian_meta.R 的 bma_run)按 --analysis 拆成
+## 两个菜单叶子。模型只拟合一次(bayesmeta),再 switch 只渲染被点选的那张图。
+##   --analysis forest    #50 贝叶斯随机效应森林(收缩估计 + 预测区间)
+##   --analysis posterior #51 mu / tau 后验密度曲线
+## 汇总表(mu/tau 后验中位数与可信区间、95% 预测区间)两叶子都会写出。
 ##
 ## 用法:
-##   Rscript run_bayesian.R --input bayesian.csv --outdir out \
+##   Rscript run_bayesian.R --input bayesian.csv --outdir out --analysis forest \
 ##           --tau_prior halfnormal --tau_scale 0.5
 ##   工具包路径: --toolkit <dir> 或环境变量 META_TOOLKIT
 ##   输入 CSV 列: study(研究名), yi(各研究效应量,如 log-OR), sei(标准误)
@@ -15,6 +17,7 @@ suppressWarnings(suppressMessages({ library(bayesmeta); library(pdftools) }))
 source(file.path(dirname(sub("^--file=", "", commandArgs(FALSE)[grep("^--file=", commandArgs(FALSE))][1])), "_common.R"))
 
 init <- mw_init(); input <- init$input; outdir <- init$outdir
+analysis  <- tolower(getarg("analysis", "forest"))
 tau_prior <- tolower(getarg("tau_prior", "halfnormal"))
 tau_scale <- as.numeric(getarg("tau_scale", "0.5"))
 slabcol   <- getarg("slab", "study")
@@ -23,18 +26,24 @@ slabcol   <- getarg("slab", "study")
 df <- mw_read_csv(input)
 if (!all(c("yi", "sei") %in% names(df))) stop("CSV 需含列 yi(效应量)与 sei(标准误)")
 slab_vec <- slab_of(df, slabcol)
-cat(sprintf("Step 1/3: 读入 %d 个研究,tau 先验 = %s(scale=%.3g)\n", nrow(df), tau_prior, tau_scale))
+cat(sprintf("Step 1/3: 读入 %d 个研究,tau 先验 = %s(scale=%.3g),analysis = %s\n",
+            nrow(df), tau_prior, tau_scale, analysis))
 
-## ---- 贝叶斯随机效应 meta(工具包 bma_run;out_prefix 指向 <outdir>/bma)----
+## ---- 贝叶斯随机效应 meta:只拟合一次(out_prefix=NULL 即不渲染任何图)----
 cat("Step 2/3: 贝叶斯合并(bayesmeta,后验 mu/tau + 预测区间)...\n")
-out_prefix <- file.path(outdir, "bma")
 res <- bma_run(df$yi, df$sei, labels = slab_vec,
-               tau_prior = tau_prior, tau_scale = tau_scale, out_prefix = out_prefix)
+               tau_prior = tau_prior, tau_scale = tau_scale, out_prefix = NULL)
+bm <- res$model
 
-## ---- PDF(森林 + 后验密度)→ PNG + 汇总表 ----
-cat("Step 3/3: 转 PNG + 写汇总表...\n")
-for (pdf in c(paste0(out_prefix, "_forest.pdf"), paste0(out_prefix, "_posterior.pdf")))
-  if (file.exists(pdf)) to_png(pdf)
+## ---- 汇总表两叶子共用(mu/tau 后验中位数与 95% 可信区间、预测区间)----
 write.csv(res$row, file.path(outdir, "bma_summary.csv"), row.names = FALSE)
 
-cat(sprintf("完成。森林图 + 后验密度图 + 汇总表写入 %s\n", outdir))
+## ---- 按 --analysis 只渲染被点选的那张图 → PDF → PNG(界面显示)----
+cat(sprintf("Step 3/3: 渲染 [%s] 图 + 转 PNG...\n", analysis))
+pdf_out <- switch(analysis,
+  forest    = bma_forest_fig(bm,    file.path(outdir, "bma_forest.pdf")),
+  posterior = bma_posterior_fig(bm, file.path(outdir, "bma_posterior.pdf")),
+  stop(sprintf("未知 --analysis '%s'(应为 forest / posterior)", analysis)))
+to_png(pdf_out)
+
+cat(sprintf("完成。[%s] 图 + 后验汇总表写入 %s\n", analysis, outdir))

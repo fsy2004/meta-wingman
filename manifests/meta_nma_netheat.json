@@ -1,9 +1,9 @@
 {
-  "id": "meta_network",
-  "title": "网络 Meta 分析(NMA:网络图 + 排名 + 联赛表)",
-  "title_en": "Network meta-analysis",
+  "id": "meta_nma_netheat",
+  "title": "设计交互 · 净热图",
+  "title_en": "Design-by-treatment net heat",
   "category": "meta",
-  "family": "Meta 分析",
+  "family": "网络 Meta 分析 NMA",
   "language": "R",
   "library": "launcher",
   "interp": "Rscript",
@@ -11,7 +11,7 @@
   "tier": "T1",
   "entry": "adapters/meta/run_network.R",
   "workdir": "adapters/meta",
-  "description": "频率学派网络 Meta 分析(netmeta,图论/电网络模型),同时合并直接与间接证据比较多个治疗。输出网络几何图、累积 rankogram、节点分割(SIDE)一致性图,以及全配对联赛表(league.csv)与 P-score 排名。基于 netmeta,由 meta-analysis-toolkit 驱动。",
+  "description": "净热图 / 设计交互不一致性(netmeta::netheat + decomp.design,König 2013):以热图展示各设计对整体不一致性的贡献,并给出 Q 值按设计内异质性 / 设计间不一致性的分解表。星形网络无法绘制热图时仍输出 Q 分解表。",
   "inputs": [
     {
       "name": "input",
@@ -53,23 +53,13 @@
         "type": "string",
         "title": "参照治疗",
         "default": "plac"
-      },
-      "small_values": {
-        "type": "string",
-        "title": "小值方向(排名用)",
-        "default": "desirable",
-        "enum": [
-          "desirable",
-          "undesirable"
-        ]
       }
     }
   },
   "param_flags": {
     "format": "--format",
     "sm": "--sm",
-    "reference": "--reference",
-    "small_values": "--small_values"
+    "reference": "--reference"
   },
   "outputs": [
     {
@@ -88,6 +78,7 @@
     "calibrated": true,
     "note": "meta 汇总数据内存极小, 恒绿"
   },
-  "group": "synthesis",
-  "item_order": 30
+  "group": "nma",
+  "item_order": 70,
+  "analysis": "netheat"
 }

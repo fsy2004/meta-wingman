@@ -1,12 +1,16 @@
 ## =====================================================================
-## run_diagnostic.R —— launcher 适配层:把 meta-analysis-toolkit 的函数库
-## 暴露成 --input/--outdir 的 CLI 方法(诊断试验准确性 DTA / SROC 分析)。
-## 工具包本身不改;此脚本 source 它、读用户 CSV、调 dta_run(双变量
-## Reitsma 模型),出图(PDF→PNG 供界面显示)+ 汇总表。
+## run_diagnostic.R —— launcher 适配层(诊断试验准确性 DTA 家族适配器)。
+## 一个适配器服务多个菜单叶子,用 --analysis 选择输出:
+##   sroc          #46 双变量 SROC 曲线          (mada::reitsma + plot)
+##   paired_forest #47 敏感度/特异度森林          (mada::forest / madad)
+##   lr_dor        #48 似然比 + 诊断比值比        (mada::madad / SummaryPts)
+##   hsroc         #49 HSROC 模型(Rutter-Gatsonis)(mada::sroc type=ruttergatsonis)
+## 重对象(madad 描述 + reitsma 双变量模型)只建一次,再 switch 出该叶子的图/表。
+## 工具包本身不改;此脚本 source 它、读用户 CSV、调 30_diagnostic_split.R 的函数。
 ##
 ## 用法:
 ##   Rscript run_diagnostic.R --input diagnostic.csv --outdir out \
-##           --study study --add_correction 0.5
+##           --analysis sroc --study study --add_correction 0.5
 ##   工具包路径: --toolkit <dir> 或环境变量 META_TOOLKIT
 ## 数据: 每行一个研究,2x2 诊断表列 TP,FN,FP,TN(+ 研究名列,默认 study)。
 ## =====================================================================
@@ -15,6 +19,7 @@ suppressWarnings(suppressMessages({ library(mada); library(pdftools) }))
 source(file.path(dirname(sub("^--file=", "", commandArgs(FALSE)[grep("^--file=", commandArgs(FALSE))][1])), "_common.R"))
 
 init <- mw_init(); input <- init$input; outdir <- init$outdir
+analysis <- getarg("analysis", "sroc")
 studycol <- getarg("study", "study")
 add_corr <- as.numeric(getarg("add_correction", "0.5"))
 
@@ -23,30 +28,61 @@ df <- mw_read_csv(input)
 need <- c("TP", "FN", "FP", "TN")
 if (!all(need %in% names(df)))
   stop(sprintf("CSV 缺列:需要 %s(每行一个研究的 2x2 诊断表)", paste(need, collapse = ", ")))
-cat(sprintf("Step 1/3: 读入 %d 个诊断研究(TP/FN/FP/TN)\n", nrow(df)))
+cat(sprintf("Step 1/3: 读入 %d 个诊断研究(TP/FN/FP/TN),analysis = %s\n", nrow(df), analysis))
 
-## 研究名 -> 作为数据框行名,便于森林图标注每个研究
+## 研究名 -> 数据框行名,便于森林图标注每个研究
 dat <- df[, need]
-if (studycol %in% names(df)) rownames(dat) <- make.unique(as.character(df[[studycol]]))
+slab <- if (studycol %in% names(df)) make.unique(as.character(df[[studycol]])) else paste("Study", seq_len(nrow(dat)))
+rownames(dat) <- slab
 
-## ---- 双变量 DTA 合并(工具包 dta_run:Reitsma 模型 + SROC + 森林)----
-cat("Step 2/3: 双变量随机效应合并(Reitsma / HSROC)+ SROC 曲线...\n")
-prefix <- file.path(outdir, "dta")
-res <- dta_run(dat, out_prefix = prefix, add_correction = add_corr)
+## ---- 重对象只建一次(madad 描述 + reitsma 双变量模型)----
+cat("Step 2/3: 双变量随机效应合并(Reitsma)+ 描述性统计...\n")
+built <- dta_build(dat, add_correction = add_corr)
+descr <- built$descr; fit <- built$fit
 
-## ---- PDF → PNG(SROC + 敏感度森林 + 特异度森林)----
-cat("Step 3/3: 出图(SROC + 森林)转 PNG + 汇总表...\n")
-for (pdf in sort(list.files(outdir, pattern = "\\.pdf$", full.names = TRUE))) to_png(pdf)
+## ---- switch:只出该叶子的图/表 ----
+cat(sprintf("Step 3/3: 生成 [%s] 输出...\n", analysis))
+switch(analysis,
 
-## ---- 汇总表(合并操作点 + 似然比 + DOR + AUC)----
-co  <- res$summary$coefficients
-sens <- res$sensitivity; spec <- res$specificity
-lr  <- res$likelihood_ratios_DOR
-summ <- data.frame(
-  metric = c("Sensitivity", "Specificity", "SROC AUC", "posLR", "negLR", "DOR"),
-  estimate = c(sens, spec, res$auc$AUC,
-               lr["posLR", "Median"], lr["negLR", "Median"], lr["DOR", "Median"])
+  ## #46 双变量 SROC 曲线 -----------------------------------------------
+  "sroc" = {
+    p <- file.path(outdir, "sroc.pdf"); dta_fig_sroc(fit, dat, p); to_png(p)
+    s  <- summary(fit)$coefficients
+    write.csv(data.frame(
+      metric = c("Sensitivity", "Specificity", "SROC AUC"),
+      estimate = c(s["sensitivity", "Estimate"], 1 - s["false pos. rate", "Estimate"],
+                   mada::AUC(fit)$AUC),
+      ci_low  = c(s["sensitivity", "95%ci.lb"], 1 - s["false pos. rate", "95%ci.ub"], NA),
+      ci_high = c(s["sensitivity", "95%ci.ub"], 1 - s["false pos. rate", "95%ci.lb"], NA)
+    ), file.path(outdir, "sroc_summary.csv"), row.names = FALSE)
+  },
+
+  ## #47 敏感度 / 特异度森林 -------------------------------------------
+  "paired_forest" = {
+    ps <- file.path(outdir, "forest_sens.pdf"); pp <- file.path(outdir, "forest_spec.pdf")
+    dta_fig_paired(descr, ps, pp); to_png(ps); to_png(pp)
+    write.csv(data.frame(
+      study = slab,
+      sensitivity = descr$sens$sens, sens_lo = descr$sens$sens.ci[, 1], sens_hi = descr$sens$sens.ci[, 2],
+      specificity = descr$spec$spec, spec_lo = descr$spec$spec.ci[, 1], spec_hi = descr$spec$spec.ci[, 2]
+    ), file.path(outdir, "paired_summary.csv"), row.names = FALSE)
+  },
+
+  ## #48 似然比 + 诊断比值比 -------------------------------------------
+  "lr_dor" = {
+    p <- file.path(outdir, "lr_dor.pdf")
+    summ <- dta_lr_dor(fit, descr, p, slab = slab); to_png(p)
+    write.csv(summ, file.path(outdir, "lr_dor_summary.csv"), row.names = FALSE)
+  },
+
+  ## #49 HSROC 模型(Rutter-Gatsonis)----------------------------------
+  "hsroc" = {
+    p <- file.path(outdir, "hsroc.pdf")
+    summ <- dta_hsroc(fit, dat, p); to_png(p)
+    write.csv(summ, file.path(outdir, "hsroc_summary.csv"), row.names = FALSE)
+  },
+
+  stop(sprintf("未知 --analysis '%s'(可选:sroc / paired_forest / lr_dor / hsroc)", analysis))
 )
-write.csv(summ, file.path(outdir, "dta_summary.csv"), row.names = FALSE)
 
-cat(sprintf("完成。SROC + 森林图 + 汇总表写入 %s\n", outdir))
+cat(sprintf("完成。[%s] 输出写入 %s\n", analysis, outdir))

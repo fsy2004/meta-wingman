@@ -44,7 +44,7 @@ class MainWindow:
 
     def _select_first(self):
         n2m = getattr(self, "_node_to_mid", {})
-        target = "meta_pairwise" if "meta_pairwise" in n2m.values() else None
+        target = "meta_pw_forest" if "meta_pw_forest" in n2m.values() else None
         for node, mid in n2m.items():
             if target is None or mid == target:
                 self.tree.selection_set(node)

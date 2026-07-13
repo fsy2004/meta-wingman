@@ -1,7 +1,7 @@
 {
-  "id": "meta_heterogeneity",
-  "title": "异质性分析(亚组 + Meta 回归)",
-  "title_en": "Heterogeneity: subgroup & meta-regression",
+  "id": "meta_pw_petpeese",
+  "title": "PET-PEESE",
+  "title_en": "PET-PEESE",
   "category": "meta",
   "family": "Meta 分析",
   "language": "R",
@@ -9,9 +9,9 @@
   "interp": "Rscript",
   "status": "turnkey",
   "tier": "T1",
-  "entry": "adapters/meta/run_heterogeneity.R",
+  "entry": "adapters/meta/run_pairwise.R",
   "workdir": "adapters/meta",
-  "description": "解释(而非仅量化)研究间异质性:先拟合随机效应基线模型(REML + Knapp-Hartung),再按类别调节变量做亚组分析(每亚组合并估计 + I²,附 Q_M 亚组间差异检验),并按连续调节变量做 meta 回归(系数表、Omnibus Q_M、伪 R²)与发表级气泡图。基于 metafor 混合效应模型,由 meta-analysis-toolkit 驱动。",
+  "description": "PET-PEESE 小研究效应校正:先用 PET 截距判断真效应是否存在,再择 PET/PEESE 给出校正后效应。基于 Stanley & Doucouliagos 2014。",
   "inputs": [
     {
       "name": "input",
@@ -21,8 +21,8 @@
       "required": true,
       "primary": true,
       "mem_axis": "n_rows",
-      "example": "example_data/heterogeneity.csv",
-      "spec": "二分类 2×2:每行一个研究,需列 ai,bi,ci,di(处理组事件/非事件、对照组事件/非事件)+ 研究名列(默认 study)+ 一个类别调节列(默认 alloc,用于亚组)+ 一个数值调节列(默认 ablat,用于 meta 回归气泡图)。"
+      "example": "example_data/bcg.csv",
+      "spec": "二分类 2×2:每行一个研究,需列 ai,bi,ci,di(处理组事件/非事件、对照组事件/非事件)+ 研究名列(默认 study)。连续型改选 SMD/MD 并提供 m1i,sd1i,n1i,m2i,sd2i,n2i;相关型 ZCOR 提供 ri,ni。"
     }
   ],
   "params_schema": {
@@ -36,18 +36,11 @@
           "OR",
           "RR",
           "RD",
-          "PETO"
+          "SMD",
+          "MD",
+          "ROM",
+          "ZCOR"
         ]
-      },
-      "subgroup": {
-        "type": "string",
-        "title": "亚组列名(类别调节变量)",
-        "default": "alloc"
-      },
-      "moderator": {
-        "type": "string",
-        "title": "Meta 回归列名(连续调节变量)",
-        "default": "ablat"
       },
       "method": {
         "type": "string",
@@ -77,8 +70,6 @@
   },
   "param_flags": {
     "measure": "--measure",
-    "subgroup": "--subgroup",
-    "moderator": "--moderator",
     "method": "--method",
     "knha": "--knha",
     "slab": "--slab"
@@ -98,8 +89,9 @@
     "killer_dim": "研究数",
     "matrix_copies": 3,
     "calibrated": true,
-    "note": "meta 汇总数据内存极小, 恒绿"
+    "note": "Meta 分析为研究级汇总数据(通常几十行),内存开销极小,基本恒为绿灯。"
   },
-  "group": "exploration",
-  "item_order": 10
+  "group": "bias",
+  "item_order": 50,
+  "analysis": "petpeese"
 }

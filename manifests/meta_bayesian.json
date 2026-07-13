@@ -1,9 +1,9 @@
 {
   "id": "meta_bayesian",
-  "title": "贝叶斯随机效应 Meta 分析(森林图 + 后验密度)",
-  "title_en": "Bayesian random-effects meta-analysis",
+  "title": "贝叶斯随机效应森林图",
+  "title_en": "Bayesian RE forest",
   "category": "meta",
-  "family": "Meta 分析",
+  "family": "贝叶斯 Bayesian",
   "language": "R",
   "library": "launcher",
   "interp": "Rscript",
@@ -11,7 +11,7 @@
   "tier": "T1",
   "entry": "adapters/meta/run_bayesian.R",
   "workdir": "adapters/meta",
-  "description": "贝叶斯 normal-normal 层次模型的随机效应 meta 分析(bayesmeta,Röver 2020),报告合并效应 mu 与异质性 tau 的后验中位数及 95% 可信区间、95% 预测区间与研究级收缩估计。默认弱信息半正态 tau 先验(scale=0.5,对数尺度效应量推荐值)。输出发表级贝叶斯森林图(含收缩+预测区间)、mu/tau 后验密度曲线图与后验汇总表。由 meta-analysis-toolkit 驱动。",
+  "description": "贝叶斯 normal-normal 层次模型的随机效应 meta 分析森林图(bayesmeta,Röver 2020)。每个研究显示后验收缩估计,底部给出合并效应 mu 的 95% 可信区间与 95% 预测区间。默认弱信息半正态 tau 先验(scale=0.5,对数尺度效应量推荐值)。同时输出后验汇总表(mu/tau 后验中位数与 95% 可信区间、预测区间)。由 meta-analysis-toolkit 驱动。",
   "inputs": [
     {
       "name": "input",
@@ -73,5 +73,6 @@
     "note": "meta 汇总数据内存极小, 恒绿"
   },
   "group": "synthesis",
-  "item_order": 40
+  "item_order": 130,
+  "analysis": "forest"
 }

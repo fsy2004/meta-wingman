@@ -1,9 +1,9 @@
 {
-  "id": "meta_diagnostic",
-  "title": "诊断试验准确性 Meta 分析(SROC + 双变量模型)",
-  "title_en": "Diagnostic test accuracy meta-analysis (SROC)",
+  "id": "meta_dta_sroc",
+  "title": "双变量 SROC 曲线(Reitsma 模型)",
+  "title_en": "Bivariate SROC (Reitsma)",
   "category": "meta",
-  "family": "Meta 分析",
+  "family": "诊断准确性 Diagnostic Test Accuracy",
   "language": "R",
   "library": "launcher",
   "interp": "Rscript",
@@ -11,7 +11,7 @@
   "tier": "T1",
   "entry": "adapters/meta/run_diagnostic.R",
   "workdir": "adapters/meta",
-  "description": "双变量随机效应诊断准确性 meta 分析(Reitsma 模型,等价于 Rutter-Gatsonis HSROC),输出发表级 SROC 曲线(含各研究散点)、敏感度/特异度森林图,以及合并敏感度、特异度、阳性/阴性似然比、诊断比值比(DOR)、SROC AUC 与阈值效应检验汇总表。基于 mada 包,由 meta-analysis-toolkit 驱动。",
+  "description": "双变量随机效应诊断准确性 meta 分析(Reitsma 2005 模型),绘制发表级 SROC 曲线(含各研究散点,点大小反映样本量),并输出合并敏感度、特异度与 SROC AUC 汇总表。基于 mada 包,由 meta-analysis-toolkit 驱动。",
   "inputs": [
     {
       "name": "input",
@@ -22,7 +22,7 @@
       "primary": true,
       "mem_axis": "n_rows",
       "example": "example_data/diagnostic.csv",
-      "spec": "2×2 诊断表:每行一个研究,需列 TP,FN,FP,TN(真阳/假阴/假阳/真阴)+ 研究名列(默认 study,用于森林图标注)。示例为 mada::AuditC(AUDIT-C 酒精滥用筛查)。"
+      "spec": "2×2 诊断表:每行一个研究,需列 TP,FN,FP,TN(真阳/假阴/假阳/真阴)+ 研究名列(默认 study,用于标注)。"
     }
   ],
   "params_schema": {
@@ -62,5 +62,6 @@
     "note": "meta 汇总数据内存极小, 恒绿"
   },
   "group": "diagnostics",
-  "item_order": 10
+  "item_order": 10,
+  "analysis": "sroc"
 }

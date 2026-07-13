@@ -21,13 +21,19 @@ def list_methods() -> list[dict]:
     return [json.loads(f.read_text(encoding="utf-8")) for f in sorted(MANIFESTS.glob("*.json"))]
 
 
-# 方法分类(有序,驱动左侧树)。(key, 中文, English)
+# 方法分类(有序,驱动左侧树)。(key, 中文, English)—— 56 叶细粒度分类的 11 大类
 GROUPS = [
-    ("data",        "数据与效应量",   "Data & Effect Sizes"),
-    ("synthesis",   "合成",           "Synthesis"),
-    ("exploration", "探索",           "Exploration"),
-    ("diagnostics", "诊断",           "Diagnostics"),
-    ("reporting",   "报告与证据质量", "Reporting & Certainty"),
+    ("synthesis",     "核心合并",         "Core Synthesis"),
+    ("heterogeneity", "异质性与调节",     "Heterogeneity & Moderators"),
+    ("bias",          "小研究与发表偏倚", "Small-study & Publication Bias"),
+    ("robustness",    "稳健性与影响",     "Robustness & Influence"),
+    ("complex",       "复杂数据结构",     "Complex Data Structures"),
+    ("nma",           "网络 Meta",        "Network Meta-Analysis"),
+    ("diagnostics",   "诊断准确性",       "Diagnostic Accuracy"),
+    ("sequential",    "序贯与效能",       "Sequential & Power"),
+    ("certainty",     "证据确信度",       "Certainty & Bias"),
+    ("reporting",     "报告",             "Reporting"),
+    ("data",          "数据准备",         "Data Preparation"),
 ]
 _GROUP_KEYS = {k for k, _, _ in GROUPS}
 
@@ -73,6 +79,8 @@ def build_argv(m, rscript, input_path, params, outdir):
         if path:
             argv += [spec["flag"], str(path)]
     argv += ["--outdir", str(outdir)]
+    if m.get("analysis"):                       # 叶子固定标志:一个家族适配器靠 --analysis 选具体输出
+        argv += ["--analysis", str(m["analysis"])]
     flags = m.get("param_flags", {})
     for k, v in (params or {}).items():
         if k in flags and v is not None and str(v) != "":

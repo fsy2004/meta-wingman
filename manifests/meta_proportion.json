@@ -1,9 +1,9 @@
 {
   "id": "meta_proportion",
-  "title": "单臂比例 Meta 分析(比例森林图)",
-  "title_en": "Single-arm proportion meta-analysis",
+  "title": "单臂比例 · logit(PLOGIT)",
+  "title_en": "Proportion — logit",
   "category": "meta",
-  "family": "Meta 分析",
+  "family": "核心合并 Core Synthesis",
   "language": "R",
   "library": "launcher",
   "interp": "Rscript",
@@ -11,7 +11,7 @@
   "tier": "T1",
   "entry": "adapters/meta/run_proportion.R",
   "workdir": "adapters/meta",
-  "description": "单臂(单组)比例/患病率 meta 分析:随机效应 REML + 95% 预测区间,支持 Freeman-Tukey 双反正弦(PFT)与 logit(PLOGIT,研究规模异质时更稳)两种变换。输出发表级比例森林图与合并汇总表(合并比例 + 95%CI + 预测区间 + I²/Q 异质性,均已反变换回自然比例尺度)。基于 meta 包(metaprop),由 meta-analysis-toolkit 驱动。",
+  "description": "单臂(单组)比例/患病率 meta 分析,logit 变换(PLOGIT):两步倒方差随机效应 REML + 95% 预测区间。研究规模差异大时比 Freeman-Tukey 更稳,是 Schwarzer 2019 推荐的默认变换。输出发表级比例森林图 + 合并汇总表(合并比例 + 95%CI + 预测区间 + I²/Q 异质性,均已反变换回自然比例尺度)。基于 meta 包 metaprop(sm=\"PLOGIT\")。",
   "inputs": [
     {
       "name": "input",
@@ -28,15 +28,6 @@
   "params_schema": {
     "type": "object",
     "properties": {
-      "method": {
-        "type": "string",
-        "title": "比例变换方法",
-        "default": "PFT",
-        "enum": [
-          "PFT",
-          "PLOGIT"
-        ]
-      },
       "event": {
         "type": "string",
         "title": "事件数列名",
@@ -55,7 +46,6 @@
     }
   },
   "param_flags": {
-    "method": "--method",
     "event": "--event",
     "n": "--n",
     "studlab": "--studlab"
@@ -78,5 +68,6 @@
     "note": "meta 汇总数据内存极小, 恒绿"
   },
   "group": "synthesis",
-  "item_order": 20
+  "item_order": 90,
+  "analysis": "logit"
 }

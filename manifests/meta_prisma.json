@@ -56,5 +56,6 @@
     "note": "meta 汇总数据内存极小, 恒绿"
   },
   "group": "reporting",
-  "item_order": 20
+  "item_order": 10,
+  "analysis": "prisma"
 }
