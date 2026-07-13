@@ -26,8 +26,9 @@ class ResultsView(ttk.Frame):
         self.btn_png = ttk.Button(bar, style="Toolbutton", command=self._save_png)
         self.btn_pdf = ttk.Button(bar, style="Toolbutton", command=self._save_pdf)
         self.btn_copy = ttk.Button(bar, style="Toolbutton", command=self._copy_table)
+        self.btn_repro = ttk.Button(bar, style="Toolbutton", command=self._save_repro)
         self.btn_open = ttk.Button(bar, style="Toolbutton", command=self._open)
-        for b in (self.btn_png, self.btn_pdf, self.btn_copy, self.btn_open):
+        for b in (self.btn_png, self.btn_pdf, self.btn_copy, self.btn_repro, self.btn_open):
             b.pack(side="left", padx=(0, 6))
 
         self.nb = ttk.Notebook(self)
@@ -40,6 +41,7 @@ class ResultsView(ttk.Frame):
         self.btn_png.config(text=I18N.t("save_as") + " " + I18N.t("export_png"))
         self.btn_pdf.config(text=I18N.t("save_as") + " " + I18N.t("export_pdf"))
         self.btn_copy.config(text=I18N.t("copy_table"))
+        self.btn_repro.config(text=I18N.t("export_script"))
         self.btn_open.config(text=I18N.t("open_folder"))
 
     def clear(self):
@@ -77,6 +79,8 @@ class ResultsView(ttk.Frame):
         self.btn_png.config(state="normal" if is_img else "disabled")
         self.btn_pdf.config(state="normal" if (is_img and self._pdf_for(p)) else "disabled")
         self.btn_copy.config(state="normal" if is_tbl else "disabled")
+        has_repro = bool(self.outdir and os.path.exists(os.path.join(self.outdir, "reproduce.R")))
+        self.btn_repro.config(state="normal" if has_repro else "disabled")
         self.btn_open.config(state="normal" if self.outdir else "disabled")
 
     def _save_png(self):
@@ -106,6 +110,25 @@ class ResultsView(ttk.Frame):
                 rows = list(csv.reader(f))
             self.clipboard_clear()
             self.clipboard_append("\n".join("\t".join(r) for r in rows))
+        except Exception:
+            pass
+
+    def _save_repro(self):
+        from tkinter import messagebox
+        if not self.outdir:
+            return
+        src_r = os.path.join(self.outdir, "reproduce.R")
+        if not os.path.exists(src_r):
+            return
+        dst = filedialog.askdirectory(title=I18N.t("export_script"))
+        if not dst:
+            return
+        try:
+            shutil.copyfile(src_r, os.path.join(dst, "reproduce.R"))
+            src_d = os.path.join(self.outdir, "data.csv")
+            if os.path.exists(src_d):
+                shutil.copyfile(src_d, os.path.join(dst, "data.csv"))
+            messagebox.showinfo("Meta Wingman", I18N.t("repro_done", d=dst))
         except Exception:
             pass
 

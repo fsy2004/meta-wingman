@@ -28,6 +28,43 @@ mw_read_csv <- function(path) {
   read.csv(path, check.names = FALSE, stringsAsFactors = FALSE, fileEncoding = "latin1")  # 兜底:永不因编码崩
 }
 
+## 写可复现脚本 reproduce.R 到 outdir:复制输入为 data.csv、记录确切参数、覆写 commandArgs
+## 后 source 适配器 → 在装有工具包的本机可一键重跑复现(RevMan/CMA 都没有此能力)。
+mw_write_repro <- function(input, outdir, toolkit) {
+  tryCatch({
+    ca <- commandArgs(trailingOnly = FALSE)
+    hit <- grep("^--file=", ca, value = TRUE)
+    script <- if (length(hit)) sub("^--file=", "", hit[1]) else ""
+    a <- commandArgs(trailingOnly = TRUE)
+    dst <- file.path(outdir, "data.csv")
+    if (!is.na(input) && nzchar(input) && file.exists(input) &&
+        normalizePath(input, mustWork = FALSE) != normalizePath(dst, mustWork = FALSE))
+      file.copy(input, dst, overwrite = TRUE)   # 防自拷贝清空(复现时 input 已是 data.csv)
+    a2 <- a
+    ii <- which(a2 == "--input");   if (length(ii)) a2[ii + 1] <- "data.csv"
+    oi <- which(a2 == "--outdir");  if (length(oi)) a2[oi + 1] <- "."
+    ti <- which(a2 == "--toolkit"); if (length(ti)) a2 <- a2[-c(ti, ti + 1)]
+    q <- function(x) paste0('"', gsub('(["\\\\])', '\\\\\\1', x), '"')
+    args_vec <- paste0("c(", paste(vapply(a2, q, ""), collapse = ", "), ")")
+    nf <- function(p) if (nzchar(p)) normalizePath(p, winslash = "/", mustWork = FALSE) else p
+    lines <- c(
+      "## Meta Wingman —— 复现本次分析 / Reproduce this analysis",
+      paste0("## 生成: ", format(Sys.time()), "   分析: ", paste(a, collapse = " ")),
+      "## 用法: 在本文件所在目录执行   Rscript reproduce.R",
+      "## (需已装好 R 与 Meta Wingman 的 toolkit;本次数据已随附为 data.csv)",
+      "",
+      paste0('Sys.setenv(META_TOOLKIT = "', nf(toolkit), '")'),
+      paste0('.mw_file <- "', nf(script), '"'),
+      paste0('.mw_args <- ', args_vec),
+      'commandArgs <- function(trailingOnly = TRUE) if (trailingOnly) .mw_args else c(paste0("--file=", .mw_file), .mw_args)',
+      'source(.mw_file)',
+      "",
+      "## 版本信息(排查差异):  print(sessionInfo())"
+    )
+    writeLines(enc2utf8(lines), file.path(outdir, "reproduce.R"), useBytes = TRUE)
+  }, error = function(e) invisible(NULL))
+}
+
 ## 读 input/outdir/toolkit + 基本校验 + 建输出目录 + 按 00→22 顺序 source 工具包(载入全部函数与 %||% 等依赖)。
 ## need_toolkit=FALSE 用于不依赖工具包的方法(如 dataprep_msd,仅用 estmeansd)。
 mw_init <- function(need_input = TRUE, need_toolkit = TRUE) {
@@ -38,6 +75,7 @@ mw_init <- function(need_input = TRUE, need_toolkit = TRUE) {
   if (need_toolkit && (!nzchar(toolkit) || !dir.exists(file.path(toolkit, "R"))))
     stop("找不到 meta 工具包,请设 --toolkit <dir> 或环境变量 META_TOOLKIT")
   dir.create(outdir, recursive = TRUE, showWarnings = FALSE)
+  try(mw_write_repro(input, outdir, toolkit), silent = TRUE)   # 每次运行自动写可复现脚本
   if (need_toolkit)
     for (f in sort(list.files(file.path(toolkit, "R"), pattern = "\\.R$", full.names = TRUE))) source(f)
   list(input = input, outdir = outdir, toolkit = toolkit)
