@@ -45,6 +45,25 @@ class MainWindow:
         except Exception:
             pass
 
+    def _wheel(self, event):
+        # 滚轮:滚动指针所在的可滚区(控件画布 / 方法树 / 结果表 / 日志),互不抢占
+        step = int(-event.delta / 120) or (-1 if event.delta > 0 else 1)
+        try:
+            w = self.root.winfo_containing(event.x_root, event.y_root)
+        except Exception:
+            return
+        while w is not None:
+            if w is self._top_canvas:
+                self._top_canvas.yview_scroll(step, "units")
+                return
+            if isinstance(w, (ttk.Treeview, tk.Text, tk.Canvas)):
+                try:
+                    w.yview_scroll(step, "units")
+                except Exception:
+                    pass
+                return
+            w = getattr(w, "master", None)
+
     def _select_first(self):
         n2m = getattr(self, "_node_to_mid", {})
         target = "meta_pw_forest" if "meta_pw_forest" in n2m.values() else None
@@ -90,7 +109,17 @@ class MainWindow:
         vpane = ttk.PanedWindow(right, orient="vertical")
         vpane.pack(fill="both", expand=True)
         self._vpane = vpane
-        top = ttk.Frame(vpane)
+        # 控件区:可滚动画布(内容多时上下滚、不裁切;滚轮由 _wheel 统一处理)
+        top_outer = ttk.Frame(vpane)
+        self._top_canvas = tk.Canvas(top_outer, highlightthickness=0, borderwidth=0, background=theme.CANVAS)
+        top_vsb = ttk.Scrollbar(top_outer, orient="vertical", command=self._top_canvas.yview)
+        self._top_canvas.configure(yscrollcommand=top_vsb.set)
+        top_vsb.pack(side="right", fill="y")
+        self._top_canvas.pack(side="left", fill="both", expand=True)
+        top = ttk.Frame(self._top_canvas)
+        self._top_win = self._top_canvas.create_window((0, 0), window=top, anchor="nw")
+        top.bind("<Configure>", lambda e: self._top_canvas.configure(scrollregion=self._top_canvas.bbox("all")))
+        self._top_canvas.bind("<Configure>", lambda e: self._top_canvas.itemconfig(self._top_win, width=e.width))
         bottom = ttk.Frame(vpane)
 
         # 方法标题 + 次级(另一语言)
@@ -151,9 +180,16 @@ class MainWindow:
         # 日志 / 结果
         self.nb = ttk.Notebook(bottom)
         self.nb.pack(fill="both", expand=True)
-        vpane.add(top, weight=0)
+        vpane.add(top_outer, weight=0)
         vpane.add(bottom, weight=1)
         self.root.after(80, lambda: self._init_sash())
+        self.root.bind_all("<MouseWheel>", self._wheel)
+        # 禁掉这些控件的类级默认滚轮:否则与统一 _wheel 双滚,且划过下拉框会误改选项
+        for _cls in ("Treeview", "Text", "TCombobox"):
+            try:
+                self.root.unbind_class(_cls, "<MouseWheel>")
+            except Exception:
+                pass
         logf = ttk.Frame(self.nb)
         self.log = tk.Text(logf, height=7, wrap="word", font=(theme.MONO, 9),
                            background=theme.CANVAS, foreground=theme.TEXT,
