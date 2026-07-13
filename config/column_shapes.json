@@ -74,6 +74,13 @@
         {"role": "lo", "zh": "置信区间下限", "en": "CI lower", "type": "num", "required": true, "aliases": ["lo", "low", "lower", "ci_low", "lcl"]},
         {"role": "hi", "zh": "置信区间上限", "en": "CI upper", "type": "num", "required": true, "aliases": ["hi", "high", "upper", "ci_high", "ucl"]}
       ]
+    },
+    "est_p": {
+      "label_zh": "点估计 + p 值", "label_en": "Point estimate + p-value",
+      "columns": [
+        {"role": "est", "zh": "效应量(如 RR/OR/HR)", "en": "Estimate (RR/OR/HR)", "type": "num", "required": true, "aliases": ["est", "rr", "or", "hr", "estimate", "effect"]},
+        {"role": "p", "zh": "双侧 p 值", "en": "Two-sided p-value", "type": "num", "required": true, "aliases": ["p", "pval", "p_value", "pvalue"]}
+      ]
     }
   }
 }
