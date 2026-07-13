@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""近单色 + 一个钢蓝强调色的紧凑主题(RevMan 观感)。在 sv_ttk.set_theme() 之后调 apply()。
+"""近单色 + 一个钢蓝强调色的紧凑主题(RevMan 观感)。在选定 ttk 原生主题后调 apply()。
 颜色只在结果统计里用语义色,界面装饰一律克制。"""
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ LIGHT = {"green": OK, "yellow": WARN, "red": SIG}
 
 
 def apply(style):
-    """在 sv_ttk.set_theme() 之后调:覆盖行高/字号/间距,让 RevMan 式紧凑生效。"""
+    """在选定 ttk 主题后调:覆盖行高/字号/间距,让 RevMan 式紧凑生效。"""
     style.configure("Treeview", font=(FONT, 9), rowheight=22, indent=14,
                     borderwidth=0, background=CANVAS, fieldbackground=CANVAS)
     style.map("Treeview", background=[("selected", ACCENT_SOFT)], foreground=[("selected", TEXT)])

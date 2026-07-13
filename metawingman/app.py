@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""入口:DPI 感知 → tkinter 自检 → sv-ttk 主题 + 微软雅黑字体 → 建主窗 → mainloop。"""
+"""入口:DPI 感知 → tkinter 自检 → 原生 Windows 主题 + 微软雅黑字体 → 建主窗 → mainloop。"""
 from __future__ import annotations
 import sys
 
@@ -37,15 +37,17 @@ def main():
     root = tk.Tk()
     root.title("Meta Wingman")
 
-    try:
-        import sv_ttk
-        sv_ttk.set_theme("light")
-    except Exception:
-        pass
+    # 主题:用原生 Windows(vista)——干净、切换快。sv-ttk 自绘控件每次切换多耗约 125ms(实测
+    # 200ms vs 76ms),且圆角现代感偏"AI 味";原生控件更简洁、更接近 RevMan,故弃用 sv-ttk。
     try:
         from tkinter import ttk
+        style = ttk.Style(root)
+        for _th in ("vista", "winnative", "clam"):
+            if _th in style.theme_names():
+                style.theme_use(_th)
+                break
         from . import theme
-        theme.apply(ttk.Style(root))     # 紧凑行高/字号/配色(在 sv-ttk 之后覆盖)
+        theme.apply(style)               # 紧凑行高/字号/配色
     except Exception:
         pass
 

@@ -26,6 +26,7 @@ class MainWindow:
         self.user_file = None
         self.run = None
         self._forms = {}          # method_id -> ParamForm(缓存,避免重建)
+        self._cur_form = None     # 当前显示的表单(切换时只忘它,不遍历全部)
         self._rl_job = None
         self._rl_tok = 0
         self._rl_q = queue.Queue()
@@ -278,11 +279,12 @@ class MainWindow:
         self.lbl_cols.config(text=(I18N.t("columns_needed") + ": " + spec) if spec else "")
 
     def _swap_form(self, mid):
-        for f in self._forms.values():
-            f.pack_forget()
+        if self._cur_form is not None:      # 只忘当前那个,不遍历全部 61 个
+            self._cur_form.pack_forget()
         if mid not in self._forms:
             self._forms[mid] = ParamForm(self.params_host, self.sel.get("params_schema"))
         self._forms[mid].pack(fill="x")
+        self._cur_form = self._forms[mid]
 
     @property
     def form(self):
