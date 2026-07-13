@@ -19,7 +19,7 @@ def estimate(manifest: dict, data_path):
         return _cache[key]
     r = None
     try:
-        import doctor  # backend/doctor.py
+        from . import doctor
         dp = doctor.data_profile(data_path)
         est = doctor.estimate_peak(manifest["mem_hint"], dp)
         rl = doctor.redlight(est["predicted_peak_bytes"])

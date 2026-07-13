@@ -20,8 +20,8 @@ CONFIG = ROOT / "config"
 TOOLKIT = ROOT / "toolkit"
 EXAMPLES = ADAPTERS / "example_data"
 
-# 复用现有引擎模块(doctor / env_check):把它们所在目录加入 sys.path
-for _d in (ROOT / "backend", ROOT / "setup"):
+# env_check.py 在 setup/,加入 sys.path 供环境面板复用(doctor 已并入本包)
+for _d in (ROOT / "setup",):
     if _d.is_dir() and str(_d) not in sys.path:
         sys.path.insert(0, str(_d))
 
