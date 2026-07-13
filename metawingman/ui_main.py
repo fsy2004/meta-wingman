@@ -11,6 +11,7 @@ from tkinter import ttk, filedialog
 
 from . import engine
 from . import theme
+from . import validate as mw_validate
 from .i18n import I18N
 from .form import ParamForm
 from .results import ResultsView
@@ -612,6 +613,8 @@ class MainWindow:
                     self.nb.select(0)
                     return
                 col_map = self._collect_map()
+        if not self._data_ok(col_map):               # 数值级校验:有问题弹窗,用户可选仍继续
+            return
         self.run = engine.Run(self.sel, input_path=input_path, params=params, col_map=col_map)
         self._set_log("")
         self.results.clear()
@@ -620,6 +623,28 @@ class MainWindow:
         self.btn_cancel.pack(side="left", padx=8)
         self.run.start()
         self.root.after(120, self._poll)
+
+    def _data_ok(self, col_map):
+        """运行前数值级校验:有问题则弹窗列出,用户可选「仍继续」(覆盖)或返回修数据。"""
+        try:
+            shape = engine.shape_of(self.sel)
+            dpath = self._cur_data_path()
+            if not (shape and dpath):
+                return True
+            issues = mw_validate.validate(shape, dpath, col_map or None)
+        except Exception:
+            return True
+        if not issues:
+            return True
+        from tkinter import messagebox
+        for m in issues:
+            self._append_log("! " + m)
+        go = messagebox.askyesno(
+            "Meta Wingman",
+            I18N.t("validate_head") + "\n\n" + "\n".join(issues[:12]) + "\n\n" + I18N.t("validate_ask"))
+        if not go:
+            self.nb.select(0)
+        return go
 
     def _poll(self):
         if not self.run:
