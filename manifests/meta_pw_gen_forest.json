@@ -94,5 +94,5 @@
   "group": "synthesis",
   "item_order": 20,
   "analysis": "gen_forest",
-  "shape": "generic"
+  "shape": "binary2x2"
 }

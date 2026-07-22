@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""主窗口:左=分组方法树,右=方法详情。RevMan 式紧凑、克制,无营销文案。
+"""主窗口:Apple 风格工具栏 + 方法侧栏 + 设置/结果工作区,克制且无营销文案。
 性能:红绿灯去主线程(缓存+防抖+后台线程);参数表单按方法缓存不重建。"""
 from __future__ import annotations
 import csv
@@ -41,12 +41,14 @@ class MainWindow:
         self._map_vars = {}       # role -> StringVar(用户列名映射)
         self._headers = []
 
-        root.geometry("1120x720")
-        root.minsize(900, 600)
+        root.geometry("1280x800")
+        root.minsize(1024, 680)
+        root.configure(background=theme.BACKGROUND)
         self._build_menu()
         self._build_top()
         self._build_status()     # 底部状态栏:接管运行反馈(须早于 body 的 pack 以占住底部)
         self._build_body()
+        self._bind_shortcuts()
         I18N.bind(self._on_lang)
         self._select_first()
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)   # 关窗前杀掉在跑的 R,避免孤儿进程
@@ -220,15 +222,55 @@ class MainWindow:
                 self.pick(mid)
                 return
 
-    # ---------- 顶栏(极简) ----------
+    def _bind_shortcuts(self):
+        """Keep the dense desktop workflow fully reachable from the keyboard."""
+        self.root.bind("<Control-f>", self._focus_search)
+        self.root.bind("<Control-Key-1>", lambda _e: self._switch_page(0))
+        self.root.bind("<Control-Key-2>", lambda _e: self._switch_page(1))
+        self.root.bind("<Control-l>", lambda _e: self._shortcut_log())
+
+    def _focus_search(self, _event=None):
+        self.ent_search.focus_set()
+        self.ent_search.selection_range(0, "end")
+        return "break"
+
+    def _switch_page(self, index):
+        self.rnb.select(index)
+        return "break"
+
+    def _shortcut_log(self):
+        self._toggle_log()
+        return "break"
+
+    # ---------- 顶栏(品牌 + 环境状态) ----------
     def _build_top(self):
-        top = ttk.Frame(self.root, padding=(12, 6))
+        top = tk.Frame(self.root, bg=theme.TOOLBAR, height=60)
         top.pack(side="top", fill="x")
-        self.lbl_rstat = ttk.Label(top, style="Muted.TLabel")
+        top.pack_propagate(False)
+        inner = tk.Frame(top, bg=theme.TOOLBAR)
+        inner.pack(fill="both", expand=True, padx=18, pady=9)
+
+        brand = tk.Frame(inner, bg=theme.TOOLBAR)
+        brand.pack(side="left", fill="y")
+        self.lbl_brand = tk.Label(brand, bg=theme.TOOLBAR, fg=theme.TEXT,
+                                  font=(theme.DISPLAY, 13, "bold"), anchor="w")
+        self.lbl_brand.pack(anchor="w")
+        self.lbl_brand_sub = tk.Label(brand, bg=theme.TOOLBAR, fg=theme.MUTED,
+                                      font=(theme.FONT, 9), anchor="w")
+        self.lbl_brand_sub.pack(anchor="w")
+
+        self.btn_lang = ttk.Button(inner, command=I18N.toggle, style="Toolbutton")
+        self.btn_lang.pack(side="right", padx=(12, 0))
+
+        rchip = tk.Frame(inner, bg=theme.FILL, padx=10, pady=6)
+        rchip.pack(side="right")
+        self._r_dot = tk.Canvas(rchip, width=10, height=10, bg=theme.FILL, highlightthickness=0)
+        self._r_dot.pack(side="left", padx=(0, 6))
+        self._r_dot_id = self._r_dot.create_oval(1, 1, 9, 9, fill=theme.MUTED, outline="")
+        self.lbl_rstat = tk.Label(rchip, bg=theme.FILL, fg=theme.TEXT,
+                                  font=(theme.FONT, 9, "bold"))
         self.lbl_rstat.pack(side="left")
-        self.btn_lang = ttk.Button(top, width=6, style="Toolbutton", command=I18N.toggle)
-        self.btn_lang.pack(side="right")
-        ttk.Separator(self.root, orient="horizontal").pack(side="top", fill="x")
+        tk.Frame(self.root, bg=theme.BORDER, height=1).pack(side="top", fill="x")
 
     # ---------- 底部状态栏 ----------
     def _build_status(self):
@@ -252,24 +294,33 @@ class MainWindow:
 
     # ---------- 主体 ----------
     def _build_body(self):
-        body = ttk.Frame(self.root)
+        body = ttk.Frame(self.root, style="App.TFrame")
         body.pack(side="top", fill="both", expand=True)
 
-        left = ttk.Frame(body, padding=(6, 6))
+        left = tk.Frame(body, bg=theme.SURFACE, width=276, padx=10, pady=12)
         left.pack(side="left", fill="y")
+        left.pack_propagate(False)
+        navhead = tk.Frame(left, bg=theme.SURFACE)
+        navhead.pack(side="top", fill="x", pady=(0, 9))
+        self.lbl_library = tk.Label(navhead, bg=theme.SURFACE, fg=theme.MUTED,
+                                    font=(theme.FONT, 10, "bold"), anchor="w")
+        self.lbl_library.pack(side="left")
+        self.lbl_method_count = tk.Label(navhead, bg=theme.SURFACE_STRONG, fg=theme.MUTED,
+                                         font=(theme.FONT, 8, "bold"), padx=7, pady=2)
+        self.lbl_method_count.pack(side="right")
         # 方法即时搜索框(带占位提示,免额外标签占行;中英双标题不分大小写子串匹配)
         self.q_var = tk.StringVar()
-        self.ent_search = ttk.Entry(left, textvariable=self.q_var, foreground=theme.MUTED)
-        self.ent_search.pack(side="top", fill="x", pady=(0, 5))
+        self.ent_search = ttk.Entry(left, textvariable=self.q_var, style="Sidebar.TEntry")
+        self.ent_search.pack(side="top", fill="x", pady=(0, 9))
         self._search_ph = True
         self.ent_search.bind("<FocusIn>", self._search_focus_in)
         self.ent_search.bind("<FocusOut>", self._search_focus_out)
         self.ent_search.bind("<KeyRelease>", self._search_key)
-        treewrap = ttk.Frame(left)
+        treewrap = tk.Frame(left, bg=theme.SURFACE)
         treewrap.pack(side="top", fill="both", expand=True)
-        self.tree = ttk.Treeview(treewrap, show="tree", selectmode="browse")
-        self.tree.column("#0", width=230, minwidth=190)
-        self.tree.tag_configure("group", font=(theme.FONT, 9, "bold"), background=theme.SURFACE)
+        self.tree = ttk.Treeview(treewrap, show="tree", selectmode="browse", style="Sidebar.Treeview")
+        self.tree.column("#0", width=242, minwidth=210)
+        self.tree.tag_configure("group", font=(theme.FONT, 9, "bold"), background=theme.SURFACE_STRONG)
         self.tree.pack(side="left", fill="both", expand=True)
         sb = ttk.Scrollbar(treewrap, orient="vertical", command=self.tree.yview)
         sb.pack(side="right", fill="y")
@@ -278,32 +329,34 @@ class MainWindow:
 
         ttk.Separator(body, orient="vertical").pack(side="left", fill="y")
 
-        right = ttk.Frame(body, padding=(14, 10))
+        right = ttk.Frame(body, style="Workspace.TFrame", padding=(16, 12))
         right.pack(side="left", fill="both", expand=True)
         # 日志抽屉:先建先 pack(side=bottom),让下面 expand 的 vpane 不吃掉它。
         # 默认收起(仅 26px 标题带:状态点 + 折叠钮 + 最新一行);出错自动展开。
         self._build_log_drawer(right)
         # ★右侧 = 两页切换 Notebook:设置页(方法/数据/参数/运行)| 结果页(图表)。
         #   两页各占满宽度,避免挤在一屏;延后到构建完再 pack(side=top),让日志抽屉先占住底部。
-        self.rnb = ttk.Notebook(right)
+        self.rnb = ttk.Notebook(right, style="Workspace.TNotebook")
         # 设置页:可滚动画布(内容多时上下滚、不裁切;滚轮由 _wheel 统一处理)
-        top_outer = ttk.Frame(self.rnb)
-        self._top_canvas = tk.Canvas(top_outer, highlightthickness=0, borderwidth=0, background=theme.CANVAS)
+        top_outer = ttk.Frame(self.rnb, style="Page.TFrame")
+        self._top_canvas = tk.Canvas(top_outer, highlightthickness=0, borderwidth=0, background=theme.BACKGROUND)
         top_vsb = ttk.Scrollbar(top_outer, orient="vertical", command=self._top_canvas.yview)
         self._top_canvas.configure(yscrollcommand=top_vsb.set)
         top_vsb.pack(side="right", fill="y")
         self._top_canvas.pack(side="left", fill="both", expand=True)
-        top = ttk.Frame(self._top_canvas)
+        top = ttk.Frame(self._top_canvas, style="Panel.TFrame", padding=(18, 16))
         self._top_win = self._top_canvas.create_window((0, 0), window=top, anchor="nw")
         top.bind("<Configure>", lambda e: self._top_canvas.configure(scrollregion=self._top_canvas.bbox("all")))
         self._top_canvas.bind("<Configure>", lambda e: self._top_canvas.itemconfig(self._top_win, width=e.width))
 
-        # 方法标题 + 次级(另一语言)
-        self.lbl_method = ttk.Label(top, style="Method.TLabel", wraplength=680)
+        # 方法上下文卡:让当前任务在滚动页面顶部始终先被看懂。
+        method_card = ttk.Frame(top, style="Hero.TFrame", padding=(14, 12))
+        method_card.pack(fill="x", pady=(0, 12))
+        self.lbl_method = ttk.Label(method_card, style="HeroTitle.TLabel", wraplength=820, justify="left")
         self.lbl_method.pack(anchor="w")
-        self.lbl_sub = ttk.Label(top, style="Muted.TLabel", wraplength=680)
+        self.lbl_sub = ttk.Label(method_card, style="HeroSub.TLabel", wraplength=820, justify="left")
         self.lbl_sub.pack(anchor="w", pady=(1, 2))
-        self.lbl_desc = ttk.Label(top, style="Body.TLabel", wraplength=680, justify="left")   # 方法说明
+        self.lbl_desc = ttk.Label(method_card, style="HeroBody.TLabel", wraplength=820, justify="left")
         self.lbl_desc.pack(anchor="w", pady=(0, 8))
 
         # 数据段
@@ -376,7 +429,7 @@ class MainWindow:
         # 运行行
         rowb = ttk.Frame(top)
         rowb.pack(fill="x", pady=(10, 4))
-        self.btn_run = ttk.Button(rowb, style="Accent.TButton", command=self._run)
+        self.btn_run = ttk.Button(rowb, command=self._run, style="Accent.TButton")
         self.btn_run.pack(side="left")
         self.btn_cancel = ttk.Button(rowb, style="Toolbutton", command=self._cancel)
 
@@ -457,6 +510,10 @@ class MainWindow:
     # ---------- 语言刷新 ----------
     def _on_lang(self):
         self._relabel_menu()
+        self.root.title(I18N.t("app_title"))
+        self.lbl_brand.config(text=I18N.t("app_title"))
+        self.lbl_brand_sub.config(text=I18N.t("app_subtitle"))
+        self.lbl_library.config(text=I18N.t("method_library"))
         self.btn_lang.config(text=I18N.t("lang_button"))
         self.rb_ex.config(text=I18N.t("use_example"))     # 单语言(按当前界面语言)
         self.rb_mine.config(text=I18N.t("use_mine"))
@@ -490,7 +547,11 @@ class MainWindow:
     def _apply_r_status(self):
         ok = bool(find_rscript())
         self.lbl_rstat.config(text=(I18N.t("r_ok") if ok else I18N.t("r_missing")),
-                              foreground=theme.OK if ok else theme.SIG)
+                              foreground=theme.TEXT)
+        try:
+            self._r_dot.itemconfig(self._r_dot_id, fill=theme.OK if ok else theme.SIG)
+        except Exception:
+            pass
 
     # ---------- 方法树 ----------
     def _rebuild_tree(self, query=""):
@@ -498,12 +559,14 @@ class MainWindow:
         self.tree.delete(*self.tree.get_children())
         self._node_to_mid = {}
         lang = I18N.lang
+        visible = 0
         for key, zh, en, items in engine.grouped_methods():
             hits = [m for m in items if (not q)
                     or q in I18N.title_of(m).lower()
                     or q in (str(m.get("title", "")) + str(m.get("title_en", ""))).lower()]
             if not hits:
                 continue
+            visible += len(hits)
             parent = self.tree.insert("", "end", text=(zh if lang == "zh" else en), open=True, tags=("group",))
             for m in hits:
                 node = self.tree.insert(parent, "end", text=I18N.title_of(m))
@@ -513,6 +576,7 @@ class MainWindow:
                 if mid == self.sel["id"]:
                     self.tree.selection_set(node)
                     break
+        self.lbl_method_count.config(text=I18N.t("method_count", n=visible))
 
     def _on_select(self, _evt):
         node = (self.tree.selection() or [None])[0]

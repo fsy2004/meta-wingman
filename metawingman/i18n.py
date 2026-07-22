@@ -9,6 +9,9 @@ from .paths import config_dir
 STRINGS = {
     "en": {
         "app_title": "Meta Wingman",
+        "app_subtitle": "Evidence synthesis workbench",
+        "method_library": "METHOD LIBRARY",
+        "method_count": "{n} methods",
         "lang_button": "中文",
         "save_as": "Save as…",
         "copy_table": "Copy table",
@@ -88,6 +91,9 @@ STRINGS = {
     },
     "zh": {
         "app_title": "Meta Wingman",
+        "app_subtitle": "循证合成工作台",
+        "method_library": "方法库",
+        "method_count": "{n} 个方法",
         "lang_button": "EN",
         "save_as": "另存为…",
         "copy_table": "复制表格",
